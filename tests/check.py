@@ -123,11 +123,57 @@ class Elements(HTMLParser):
     def handle_starttag(self, tag, attrs):
         self.counts.update(dict(attrs).get('class','').split())
 p = Elements(); p.feed(page)
-assert all(p.counts[k] == v for k,v in {'boat-anchor':5,'puddle':2,'rain':3,'cascade':2}.items())
-assets = [base64.b64decode(data, validate=True) for data in re.findall(r'data:image/png;base64,([A-Za-z0-9+/=]+)',page)]
-assert len(assets) == 2
-assert (ROOT / 'wallpaper/still.png').read_bytes() in assets
-assert all(data.startswith(b'\x89PNG\r\n\x1a\n') for data in assets)
+assert all(p.counts[k] == v for k,v in
+           {'boat-anchor':2,'rain':4,'cascade':2,'plane-near':1,'bloom':1,
+            'traffic':1,'lane':7,'emit':4,'ballast':3,'win':14,'bolt':2}.items()), p.counts
+assert p.counts['puddle'] == 0          # replaced by the depth-graded impact field
+assert p.counts['wake'] == 0            # replaced by the boats' vertical light columns
+assert p.counts['sp'] >= 40 and p.counts['glint'] >= 55
+assets = [base64.b64decode(data, validate=True) for data in re.findall(r'data:image/webp;base64,([A-Za-z0-9+/=]+)',page)]
+assert len(assets) == 3, len(assets)    # city, boat, pillarbox plate
+assert all(data[:4] == b'RIFF' and data[8:12] == b'WEBP' for data in assets)
+assert (ROOT / 'wallpaper/still.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+assert len(page.encode()) < 1_500_000, len(page)   # was 5.0 MB before the re-encode
+
+# REGRESSION: the rain tiles reference their gradient as url(%23r). Writing the
+# '#' pre-encoded and then percent-encoding the whole SVG yields %2523, a
+# dangling paint-server reference — every drop renders with no fill and the rain
+# is silently invisible.
+tiles = re.findall(r'data:image/svg\+xml,([^"]+)', page)
+assert len(tiles) == 5, len(tiles)      # 4 rain tiles + the waterfall tile
+assert all('%2523' not in t for t in tiles)
+assert sum('url%28%23r%29' in t for t in tiles) == 4
+
+# REGRESSION: under Reduce Motion `animation:none` makes an element render its
+# DECLARED value. Any element whose visible opacity comes only from keyframes
+# renders at 1 and becomes a solid blob, so .emit must declare a base.
+emit_rule = re.search(r'\.emit\{[^}]*\}', page).group(0)
+assert 'opacity:calc((var(--lo) + var(--hi))/2)' in emit_rule
+
+reduced = re.search(r'@media\(prefers-reduced-motion:reduce\)\{.*?\n\}', page, re.S).group(0)
+assert '.rain.mid,.rain.near,.rain.warm{display:none}' in reduced  # far rain MUST survive
+assert '.rain.far{opacity:.17}' in reduced                         # brighter than animated floor
+assert 'filter:blur' not in re.search(r'\.rain\.near\{[^}]*\}', page).group(0)
+
+# No two large-area periods may share a prime factor, or the frame relocks.
+periods = {'bloom':89,'sunpath':167,'haze-h':173,'haze-m':127,'haze-f':71,
+           'gust':47,'squall-a':79,'squall-b':97,'squall-c':113}
+for name, value in periods.items():
+    assert f'calc(var(--t)*{value}s)' in page, name
+import math
+assert all(math.gcd(x, y) == 1 for a, x in periods.items()
+           for b, y in periods.items() if a < b)
+# Every duration routes through the calm-tier variable, so #calm is one variable
+# rather than a duplicated block. Each time token in an animation declaration
+# must be preceded by `var(--t)*`.
+assert '--t:1' in page and 'body.calm{--t:3}' in page
+for decl in re.findall(r'animation(?:-duration|-delay)?:[^;}]+', page):
+    for time in re.finditer(r'\d+(?:\.\d+)?s\b', decl):
+        if time.group(0) == '0s':
+            continue                     # zero is the same at any tier
+        before = decl[:time.start()]
+        assert before.endswith('var(--t)*') or before.endswith('var(--t)*-'), decl
+
 assert 'prefers-reduced-motion:reduce' in page
 assert 'visibilitychange' in page and 'document.hidden' in page
 assert not re.search(r'(?:src|href)=["\x27]https?://',page)
@@ -200,10 +246,22 @@ print('PASS: login install/retry/repeat/uninstall/reinstall and preservation of 
 
 if shutil.which('node'):
     script = re.search(r'<script>(.*?)</script>',page,re.S).group(1)
-    probe = "const assert=require('node:assert/strict');let paused,changed;const document={hidden:false,body:{classList:{toggle:(name,state)=>{assert.equal(name,'paused');paused=state;}}},addEventListener:(name,callback)=>{assert.equal(name,'visibilitychange');changed=callback;}};"
-    probe += script + "\nassert.equal(paused,false);document.hidden=true;changed();assert.equal(paused,true);document.hidden=false;changed();assert.equal(paused,false);"
+    stub = ("const assert=require('node:assert/strict');let paused,changed,added=[];"
+            "const document={hidden:false,body:{classList:{"
+            "toggle:(name,state)=>{assert.equal(name,'paused');paused=state;},"
+            "add:(name)=>added.push(name)}},"
+            "addEventListener:(name,callback)=>{assert.equal(name,'visibilitychange');changed=callback;}};")
+    probe = stub + "const location={hash:''};" + script + (
+        "\nassert.equal(paused,false);document.hidden=true;changed();assert.equal(paused,true);"
+        "document.hidden=false;changed();assert.equal(paused,false);"
+        "assert.deepEqual(added,[],'calm must not engage without the hash');")
     subprocess.run(['node','-e',probe], check=True)
-    print('PASS: actual wallpaper visibility script pauses and resumes (DOM mocked)')
+    # The battery tier is the only power lever the page has: nothing in WebKit
+    # exposes Low Power Mode, so #calm is how a user slows every animation.
+    calm = stub + "const location={hash:'#calm'};" + script + (
+        "\nassert.deepEqual(added,['calm'],'#calm must engage the battery tier');")
+    subprocess.run(['node','-e',calm], check=True)
+    print('PASS: actual wallpaper script pauses, resumes and honours #calm (DOM mocked)')
 else:
     print('SKIP: optional visibility execution check needs Node.js')
 

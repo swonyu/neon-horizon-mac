@@ -4,7 +4,7 @@ Copy the text below into an assistant on the other Mac, and give it the complete
 
 ---
 
-Set up my Mac using this local Neon Horizon Mac Makeover repository. I want a clean, minimal, magenta appearance and its finished animated cyberpunk wallpaper, including the improved rain, moving boats, puddles, waterfalls, and reflections.
+Set up my Mac using this local Neon Horizon Mac Makeover repository. I want a clean, minimal, magenta appearance and its finished animated cyberpunk wallpaper, including the animated rain, bridge traffic, rain impacts on the wet promenade, waterfalls, and neon reflections.
 
 First read README.md and docs/SETUP.md, inspect my macOS version, and show me which changes are available. Use the existing wallpaper and scripts. Do not regenerate the painting or replace the animation with a still image.
 

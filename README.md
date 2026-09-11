@@ -4,7 +4,7 @@ A clean, magenta Mac desktop with an animated cyberpunk painting, a calmer Dock,
 
 ![Neon Horizon cyberpunk painting](wallpaper/still.png)
 
-**Start here:** [Setup guide](docs/SETUP.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md)
+**Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md)
 
 ## Use it
 
@@ -26,11 +26,24 @@ The available groups are `appearance`, `dock`, `finder`, `desktop`, `calendar`, 
 
 ## Animated wallpaper
 
-Three layers of rain, five gently moving boats, wakes, two rippling puddles, flowing waterfalls, mist, and neon reflections. Everything is embedded in one HTML file. It works offline, has no audio or tracking, respects Reduce Motion, and pauses when the browser reports it hidden.
+Rain that gusts and obeys aerial perspective, landing across the whole wet promenade and the near river. Traffic on the bridges and two aerial lanes. The sun's reflection crawling on the water. Neon ballast stutter, windows coming on over minutes, distant lightning at the peak of a seven-minute storm cycle. A near-promenade plane that dollies against the camera for real depth, and a source-derived bloom that makes every light in the painting halate.
+
+Everything is embedded in one HTML file. It works offline, has no audio or tracking, respects Reduce Motion, and pauses when the browser reports it hidden. No two large-area animations share a prime factor, so the scene does not repeat inside ~39 minutes.
+
+Open `index.html#calm` to run every animation at one third speed on battery.
 
 Use [Plash](https://sindresorhus.com/plash) to place it behind your windows. The guide includes its local-file setup and an optional loopback host with login startup. Plash and Hammerspoon are separate projects and are not bundled.
 
-The base painting is **1536 × 1024**; the transparent boat source is **2172 × 724**. The scene scales to your display. This is layered animation, not native 4K video. Plash cannot animate the Lock Screen.
+The base painting is **1536 × 1024**; the boat sprite is **768 × 256**. Both ship as WebP, so the file is **~0.75 MB** rather than the 5.0 MB the PNG build cost. The scene scales to your display, and past 1.85:1 it pillarboxes rather than throwing the sky off the top. This is layered animation, not native 4K video. Plash cannot animate the Lock Screen.
+
+To rebuild the wallpaper after editing anything under `wallpaper/build/`:
+
+```sh
+python3 wallpaper/build/prepare_images.py   # needs Pillow + numpy
+python3 wallpaper/build/build.py
+```
+
+The first script prints the measured grading gates and fails if the sunset stops out-ranking the pavement. See [wallpaper/build/scene.py](wallpaper/build/scene.py) for the rules the scene is held to.
 
 ## Undo
 

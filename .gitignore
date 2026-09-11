@@ -5,3 +5,6 @@ __pycache__/
 backups/
 generated-icons/
 *.log
+
+# Derived wallpaper assets; rebuild with wallpaper/build/prepare_images.py
+wallpaper/build/out/
