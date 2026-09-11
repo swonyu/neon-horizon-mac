@@ -1,0 +1,250 @@
+{
+  "appearance": [
+    [
+      "NSGlobalDomain",
+      "AppleInterfaceStyle",
+      "Dark",
+      "Dark appearance"
+    ],
+    [
+      "NSGlobalDomain",
+      "AppleAccentColor",
+      6,
+      "Pink / magenta accent"
+    ],
+    [
+      "NSGlobalDomain",
+      "AppleShowScrollBars",
+      "WhenScrolling",
+      "Scroll bars while scrolling"
+    ],
+    [
+      "NSGlobalDomain",
+      "AppleScrollerPagingBehavior",
+      true,
+      "Scroll bar jumps to clicked position"
+    ],
+    [
+      "NSGlobalDomain",
+      "AppleReduceDesktopTinting",
+      true,
+      "Reduce wallpaper tint in windows"
+    ],
+    [
+      "NSGlobalDomain",
+      "NSTableViewDefaultSizeMode",
+      3,
+      "Large sidebar icons"
+    ]
+  ],
+  "dock": [
+    [
+      "com.apple.dock",
+      "tilesize",
+      48.0,
+      "Compact Dock icons"
+    ],
+    [
+      "com.apple.dock",
+      "magnification",
+      true,
+      "Gentle Dock magnification"
+    ],
+    [
+      "com.apple.dock",
+      "largesize",
+      60,
+      "Dock magnification size"
+    ],
+    [
+      "com.apple.dock",
+      "mineffect",
+      "scale",
+      "Simple minimize animation"
+    ],
+    [
+      "com.apple.dock",
+      "launchanim",
+      false,
+      "No bouncing launch animation"
+    ],
+    [
+      "com.apple.dock",
+      "show-recents",
+      false,
+      "Hide suggested and recent Dock apps"
+    ],
+    [
+      "com.apple.dock",
+      "minimize-to-application",
+      true,
+      "Minimize windows into app icons"
+    ],
+    [
+      "com.apple.dock",
+      "mru-spaces",
+      false,
+      "Keep desktop order stable"
+    ]
+  ],
+  "finder": [
+    [
+      "NSGlobalDomain",
+      "AppleShowAllExtensions",
+      true,
+      "Visible filename extensions"
+    ],
+    [
+      "com.apple.finder",
+      "NewWindowTarget",
+      "PfHm",
+      "New Finder windows open Home"
+    ],
+    [
+      "com.apple.finder",
+      "FXDefaultSearchScope",
+      "SCcf",
+      "Search the current folder first"
+    ],
+    [
+      "com.apple.finder",
+      "_FXSortFoldersFirst",
+      true,
+      "Sort folders first by name"
+    ],
+    [
+      "com.apple.finder",
+      "_FXSortFoldersFirstOnDesktop",
+      true,
+      "Sort desktop folders first"
+    ],
+    [
+      "com.apple.finder",
+      "ShowPathbar",
+      true,
+      "Show Finder path bar"
+    ],
+    [
+      "com.apple.finder",
+      "ShowStatusBar",
+      true,
+      "Show Finder status bar"
+    ],
+    [
+      "com.apple.finder",
+      "ShowExternalHardDrivesOnDesktop",
+      false,
+      "Hide desktop external-drive icons"
+    ],
+    [
+      "com.apple.finder",
+      "ShowRemovableMediaOnDesktop",
+      false,
+      "Hide desktop removable-media icons"
+    ]
+  ],
+  "desktop": [
+    [
+      "com.apple.WindowManager",
+      "EnableTiledWindowMargins",
+      true,
+      "Gaps around tiled windows"
+    ],
+    [
+      "com.apple.WindowManager",
+      "StandardHideDesktopIcons",
+      true,
+      "Clear desktop file surface"
+    ],
+    [
+      "com.apple.WindowManager",
+      "StandardHideWidgets",
+      true,
+      "Uninterrupted desktop artwork"
+    ],
+    [
+      "com.apple.screencapture",
+      "location",
+      "~/Pictures/Screenshots",
+      "Dedicated screenshot folder"
+    ]
+  ],
+  "calendar": [
+    [
+      "com.apple.iCal",
+      "Show Week Numbers",
+      true,
+      "Calendar week numbers"
+    ],
+    [
+      "com.apple.iCal",
+      "Show heat map in Year View",
+      true,
+      "Calendar year activity shading"
+    ]
+  ],
+  "clipboard": [
+    [
+      "com.apple.Spotlight",
+      "PasteboardHistoryEnabled",
+      true,
+      "Native clipboard history"
+    ],
+    [
+      "com.apple.Spotlight",
+      "PasteboardHistoryTimeout",
+      604800,
+      "Seven-day clipboard history"
+    ]
+  ],
+  "corners": [
+    [
+      "com.apple.dock",
+      "wvous-tl-corner",
+      2,
+      "Mission Control corner"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-tl-modifier",
+      524288,
+      "Require Option for Mission Control"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-bl-corner",
+      4,
+      "Show Desktop corner"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-bl-modifier",
+      524288,
+      "Require Option for Show Desktop"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-tr-corner",
+      13,
+      "Lock Screen corner"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-tr-modifier",
+      524288,
+      "Require Option for Lock Screen"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-br-corner",
+      14,
+      "Quick Note corner"
+    ],
+    [
+      "com.apple.dock",
+      "wvous-br-modifier",
+      524288,
+      "Require Option for Quick Note"
+    ]
+  ]
+}
