@@ -67,15 +67,16 @@ def apply_knockdown(img):
     return Image.fromarray((np.clip(out, 0, 1) * 255).round().astype(np.uint8))
 
 
-# Mirrors .bloom's CSS filter chain, in the same order and the same (sRGB) space:
-# brightness -> contrast -> saturate -> blur, screened back at .2.
+# Approximates .bloom's CSS filter chain in sRGB for the static preview.
+# The page first resamples a quarter-sized element and adds other scene layers;
+# this full-resolution source treatment is not a captured browser frame.
 BLOOM_BRIGHTNESS = 1.5
 BLOOM_CONTRAST = 2.6
 BLOOM_SATURATE = 1.25
 # blur(<length>) sets the Gaussian standard deviation directly, and the filter
 # applies in the element's own coordinate space BEFORE transform:scale(4), so
-# .bloom's blur(5px) is an effective sigma of 20 screen px. Pillow's
-# GaussianBlur takes the same units, so the derivation gives 20.
+# .bloom's blur(5px) becomes sigma 20 in world coordinates. This preview uses
+# 20 source-image pixels; the displayed size also depends on the camera scale.
 BLOOM_SIGMA = 20
 BLOOM_ALPHA = 0.20
 
@@ -84,9 +85,8 @@ def apply_bloom(img):
     from PIL import ImageFilter
     a = np.asarray(img.convert('RGB'), np.float32) / 255.0
     b = a * BLOOM_BRIGHTNESS
-    # contrast(k): out = k*in - (k-1)/2. Everything under ~0.205 luma goes to
-    # black and contributes nothing under screen, which is what protects the
-    # painting's darks.
+    # contrast(k): out = k*in - (k-1)/2. Channels originally under ~0.205 go to
+    # black per channel before blur. This is not a luminance threshold.
     b = BLOOM_CONTRAST * b - (BLOOM_CONTRAST - 1) / 2
     b = np.clip(b, 0, 1)
     lum = il.luma8(b * 255.0)[..., None] / 255.0
@@ -110,7 +110,6 @@ def sample(img, label):
 
 
 def main():
-    OUT.mkdir(exist_ok=True)
     city = Image.open(SRC / 'city-source.png')
     print('Value knockdown')
     before_p, before_s = sample(city, 'before')
@@ -129,6 +128,11 @@ def main():
         print(f'  [{"PASS" if passed else "FAIL"}] {name}')
         ok &= passed
 
+    if not ok:
+        print('Grading rejected; previous outputs retained.', file=sys.stderr)
+        return 1
+
+    OUT.mkdir(exist_ok=True)
     graded.save(OUT / 'city-graded.png')
 
     # Step 4: encode. The graded PNG stays as the master for the bloom pass.
@@ -147,13 +151,12 @@ def main():
         OUT / 'city-blur.webp', quality=82, method=6)
     print(f'  city-blur.webp: {(OUT / "city-blur.webp").stat().st_size / 1024:.1f} KB')
 
-    # README preview. Reproduces the CSS bloom offline so the still matches what
-    # the page actually renders, rather than showing the ungraded source.
+    # README preview: the graded painting with an approximate offline bloom.
     print('Preview still')
     still = apply_bloom(graded)
     still.save(HERE.parent / 'still.png')
     print(f'  still.png: {(HERE.parent / "still.png").stat().st_size / 1024:.1f} KB')
-    return 0 if ok else 1
+    return 0
 
 
 if __name__ == '__main__':

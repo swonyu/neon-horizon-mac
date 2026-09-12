@@ -1,17 +1,31 @@
 -- Run from tests/: lua shortcuts-selfcheck.lua
-local bindings, launched, created, focused, failKey = {}, {}, {}, nil, nil
+local bindings, launched, created, focused, failure = {}, {}, {}, nil, nil
 local function chord(mods, key) return table.concat(mods, "+") .. ":" .. key end
 hs = {
-    hotkey = {bind=function(mods, key, callback)
-        if key == failKey then return nil end
+    hotkey = {new=function(mods, key, callback)
+        if key=="t" and failure=="create nil" then return nil end
+        if key=="t" and failure=="create throws" then error("injected creation failure") end
         local name = chord(mods, key)
-        local hotkey = {deleted=false}
+        local hotkey = {deleted=false, idx=name, callback=callback, enabled=false}
+        function hotkey:enable()
+            if key=="t" and failure=="enable nil" then return nil end
+            assert(not bindings[name], "an existing shortcut was shadowed")
+            bindings[name]=self; self.enabled=true
+            if key=="t" and failure=="enable throws" then error("injected enable failure") end
+            return self
+        end
         function hotkey:delete()
             assert(not self.deleted, "hotkey deleted twice")
-            self.deleted = true; bindings[name] = nil
+            self.deleted = true
+            if bindings[name]==self then bindings[name]=nil end
+            self.enabled=false
         end
-        bindings[name] = callback; created[#created+1] = hotkey
+        created[#created+1] = hotkey
         return hotkey
+    end, getHotkeys=function()
+        local result={}
+        for _, hotkey in pairs(bindings) do result[#result+1]=hotkey end
+        return result
     end},
     window = {focusedWindow=function() return focused end},
     application = {launchOrFocusByBundleID=function(id)
@@ -21,9 +35,9 @@ hs = {
 local mods = {"ctrl", "alt", "cmd"}
 local appMods = {"ctrl", "alt", "cmd", "shift"}
 local function press(key, app)
-    local callback = bindings[chord(app and appMods or mods, key)]
-    assert(callback, "missing shortcut: " .. key)
-    callback()
+    local hotkey = bindings[chord(app and appMods or mods, key)]
+    assert(hotkey, "missing shortcut: " .. key)
+    hotkey.callback()
 end
 local function copy(f) return {x=f.x, y=f.y, w=f.w, h=f.h} end
 local screen = {frame=function() return {x=-1600, y=24, w=1600, h=876} end}
@@ -84,8 +98,20 @@ end
 handle:stop(); handle:stop()
 assert(next(bindings)==nil, "stop left active shortcuts")
 for _, hotkey in ipairs(created) do assert(hotkey.deleted, "hotkey leaked") end
-failKey="t"
-local ok, err = pcall(start)
-assert(not ok and tostring(err):find("hotkey"), "binding failure must be reported")
-assert(next(bindings)==nil, "failed start leaked active shortcuts")
-print("PASS: 8 shortcuts; geometry, per-window restore, missing/unsupported windows, app IDs, stop and failed-start cleanup")
+for _, injected in ipairs({"create nil", "create throws", "enable nil", "enable throws"}) do
+    failure=injected
+    local ok, err = pcall(start)
+    assert(not ok, "binding failure must be reported: "..injected)
+    assert(next(bindings)==nil, "failed start leaked active shortcuts: "..injected)
+    for _, hotkey in ipairs(created) do assert(hotkey.deleted, "failed start leaked a hotkey: "..injected) end
+end
+failure=nil
+local existing=hs.hotkey.new(appMods, "t", function() launched[#launched+1]="existing shortcut" end):enable()
+local ok, err=pcall(start)
+assert(not ok and tostring(err):find("already in use"), "shortcut collision must be reported")
+assert(bindings[existing.idx]==existing and not existing.deleted, "existing shortcut was changed")
+assert(#hs.hotkey.getHotkeys()==1, "collision leaked our shortcuts")
+press("t", true); assert(launched[#launched]=="existing shortcut", "existing shortcut no longer works")
+existing:delete()
+for _, hotkey in ipairs(created) do assert(hotkey.deleted, "hotkey leaked") end
+print("PASS: 8 shortcuts; geometry, restore, unsupported windows, app IDs, stop, existing shortcuts and four startup failure paths")

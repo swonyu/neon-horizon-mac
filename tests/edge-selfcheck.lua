@@ -2,16 +2,21 @@
 -- Only the Hammerspoon host is mocked; edge_dwell.lua is the real implementation.
 local implementation = assert(loadfile("../controls/edge_dwell.lua"), "edge_dwell.lua must exist")()
 local tests = 0
-local function check(name, scenario, config)
+local function check(name, scenario, config, startupFailure)
     local now, timers, taps, watchers, sent = 0, {}, {}, {}, {}
     local p = {x = 500, y = 500}
     local frame = {x = 0, y = 0, w = 1000, h = 1000}
     local buttons, modifiers, secure, connected = {}, {}, false, 1
     local screen = {getUUID = function() return "BUILT-IN" end,
         fullFrame = function() return {x=frame.x,y=frame.y,w=frame.w,h=frame.h} end}
-    local function handle(fn)
+    local function handle(fn, kind)
         return {fn=fn, active=false,
-            start=function(self) self.active=true; return self end,
+            start=function(self)
+                self.active=true
+                if startupFailure and startupFailure==kind then error("injected "..kind.." startup failure") end
+                if startupFailure=="disabled tap" and kind=="tap" then self.active=false end
+                return self
+            end,
             stop=function(self) self.active=false; return self end,
             isEnabled=function(self) return self.active end}
     end
@@ -23,8 +28,8 @@ local function check(name, scenario, config)
         mouse = {absolutePosition=function() return p end},
         screen = {find=function(uuid) if uuid=="BUILT-IN" and connected>0 then return screen end end,
             allScreens=function() local s={}; for i=1,connected do s[i]=screen end; return s end,
-            watcher={new=function(fn) local w=handle(fn); watchers.screen=w; return w end}},
-        caffeinate={watcher={new=function(fn) local w=handle(fn); watchers.sleep=w; return w end}},
+            watcher={new=function(fn) local w=handle(fn, "screen"); watchers.screen=w; return w end}},
+        caffeinate={watcher={new=function(fn) local w=handle(fn, "sleep"); watchers.sleep=w; return w end}},
         timer = {doAfter=function(delay, fn)
             local t=handle(fn); t.at=now+delay; t:start(); timers[#timers+1]=t; return t
         end},
@@ -36,7 +41,7 @@ local function check(name, scenario, config)
                 assert(#mods==1 and mods[1]=="ctrl" and delay==0, "only Ctrl-arrow is allowed")
                 sent[#sent+1]={key=key,at=now}
             end,
-            new=function(events, fn) local t=handle(fn); t.events=events; taps[#taps+1]=t; return t end}
+            new=function(events, fn) local t=handle(fn, "tap"); t.events=events; taps[#taps+1]=t; return t end}
     }
     local function event(label, x, y)
         if x then p={x=x,y=y} end
@@ -61,7 +66,19 @@ local function check(name, scenario, config)
         end
         now=deadline
     end
-    local helper=implementation(config or {screenUUID="BUILT-IN"})
+    local ok, helper=pcall(implementation, config or {screenUUID="BUILT-IN"})
+    if startupFailure then
+        assert(not ok, "startup failure must be reported")
+        if startupFailure=="disabled tap" then
+            assert(tostring(helper):find("Accessibility"), "disabled tap needs a useful permission error")
+        end
+        for _, resources in ipairs({timers, taps, watchers}) do
+            for _, resource in pairs(resources) do assert(not resource.active, "failed startup leaked a resource") end
+        end
+        tests=tests+1; print("PASS "..name)
+        return
+    end
+    assert(ok, helper)
     scenario({move=function(x,y) event("mouseMoved",x,y) end, event=event, wait=wait, sent=sent,
         buttons=function(v) buttons=v end, modifiers=function(v) modifiers=v end,
         secure=function(v) secure=v end, displays=function(v) connected=v end,
@@ -116,6 +133,15 @@ check("modifiers and secure input gate entry and timer firing", function(h)
     h.move(500,500); h.move(0,500); h.wait(1); h.event("flagsChanged"); h.wait(1)
     assert(#h.sent==0, "brief modifier event failed to cancel")
 end)
+check("Caps Lock does not block dwell, held modifiers still do", function(h)
+    h.modifiers({capslock=true}); h.move(0,500); h.wait(2); assert(#h.sent==1)
+    for _, modifier in ipairs({"cmd", "alt", "shift", "ctrl", "fn"}) do
+        h.move(500,500); h.modifiers({capslock=true, [modifier]=true})
+        h.move(0,500); h.wait(2); assert(#h.sent==1, modifier.." must block entry")
+    end
+    h.move(500,500); h.modifiers({capslock=true}); h.move(0,500); h.wait(1)
+    h.modifiers({capslock=true, ctrl=true}); h.wait(1); assert(#h.sent==1, "held modifier must block firing")
+end)
 check("sleep and display notifications cancel until leaving", function(h)
     for _,signal in ipairs({h.sleep,h.screenChange}) do
         h.move(500,500); h.move(0,500); h.wait(1); signal(); h.wait(2)
@@ -148,6 +174,9 @@ end, {screenUUID="BUILT-IN", delay=3, strip=3, top=0.30, bottom=0.70})
 check("UUID must match instead of silently using the only display", function(h)
     h.move(0,500); h.wait(3); assert(#h.sent==0)
 end, {screenUUID="UNKNOWN"})
+for _,failure in ipairs({"disabled tap", "tap", "screen", "sleep"}) do
+    check("startup cleanup: "..failure, nil, nil, failure)
+end
 for _,config in ipairs({{}, {screenUUID=""}, {screenUUID="BUILT-IN",delay=0},
     {screenUUID="BUILT-IN",delay=math.huge}, {screenUUID="BUILT-IN",strip=-1},
     {screenUUID="BUILT-IN",top=0.8,bottom=0.2}}) do

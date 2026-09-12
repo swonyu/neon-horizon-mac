@@ -26,3 +26,14 @@ Faster key repeat and temporary TextEdit behavior changes were cancelled and are
 Developed on macOS 27.0 beta (26A428), on M5 Max. Native preset readback was checked during the original makeover; the portable apply/undo adapter is tested separately in an isolated domain. The original desktop wallpaper ran through Plash, but this edition's login installer and complete preset have not been applied to a second Mac. A full reboot test has not been performed.
 
 The packaged wallpaper is byte-identical to the finished source HTML. An attempt to reopen it for a new browser preview was blocked by browser security policy; that block was respected. The check suite verifies the assets, scene layers, HTTP routes, and service configuration. Optional Node checks verify the visibility pause/resume logic. Lua simulations exercise the actual edge and shortcut modules against a mocked host; they do not certify live Accessibility-controlled desktop switching.
+
+## 12 September 2026 — repository audit repairs
+
+The [22-finding audit](AUDIT-2026-09-12.md) covers command-level preview and undo
+races, input validation, journal publication, host ownership and interrupted
+installation, launcher dependency handling, optional control startup, and artwork
+behavior/build reliability. The image recipe and embedded artwork remain the same;
+reflection placement, calm-fragment updates and Reduce Motion brightness are fixed.
+Documentation now separates measured image gates and simulated behavior from
+unverified rendering, power and live Mac installation. The [implementation plan](plans/2026-09-12-audit-fixes.md)
+tracks completion and the audit records final checks.

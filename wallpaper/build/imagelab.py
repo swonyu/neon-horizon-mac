@@ -1,9 +1,8 @@
 """Colour-space helpers shared by the asset preparation steps.
 
-Everything that changes pixel values happens in linear light or Oklab, never in
-gamma-encoded sRGB. Compositing a flat dark colour in sRGB clips speculars flat
-and reads as a gel laid over the painting; scaling luminance in linear space
-darkens midtones while leaving the highlight rolloff intact.
+The foreground grade adjusts Oklab lightness and chroma after decoding sRGB.
+Sampling uses gamma-encoded Rec.709 luma, and the approximate preview bloom
+uses sRGB to follow CSS filter-function semantics.
 """
 import numpy as np
 

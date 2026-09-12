@@ -11,8 +11,7 @@ Three defects in the shipped tiles are fixed here.
 3. MOTION BLUR. A rain streak is a smear, not a hairline. Each drop is drawn as
    three concentric rects sharing a centre line, at widths 1.2/2.4/3.6 and
    falling opacities, which bakes a soft horizontal falloff into the tile. This
-   is why .rain.near must NOT carry filter:blur() — a filter on a subtree whose
-   child translates every frame re-applies forever, on battery.
+   avoids a separate CSS blur filter. Its power benefit has not been profiled.
 """
 import random
 from urllib.parse import quote

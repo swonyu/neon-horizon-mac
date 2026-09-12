@@ -6,15 +6,14 @@ the viewport, so placements survive every display aspect ratio. Coordinates were
 read off the source image; the ones that matter carry a comment saying what is
 painted there.
 
-Timing rule enforced throughout: no two large-area elements share a prime factor.
-Periods are expressed in tenths of a second and drawn from prime sets, so the
-combined state of the scene does not relock inside ~39 minutes.
+Different periods and phases vary the local accents. Some periods share factors
+or are reused; this generator does not establish a scene-wide repeat interval.
 """
 import random
 
-rng = random.Random(20260911)   # fixed seed: the build must be reproducible
+rng = random.Random(20260911)   # build.main resets this seed for each assembly
 
-# Prime-tenths period sets. Mutually coprime by construction.
+# Varied accent periods, in seconds.
 GLINT_PERIODS = [2.3, 2.9, 3.1, 3.7, 4.1, 4.3, 4.7, 5.3, 5.9]
 SMEAR_PERIODS = [8.3, 9.7, 11.3, 12.9, 14.7, 16.1]
 
@@ -251,9 +250,8 @@ def traffic():
 
 
 # --- windows ------------------------------------------------------------------
-# HONESTY CONSTRAINT: an additive patch can only make a painted window brighter.
-# There is no multiply layer, so every event is a light coming ON and later
-# fading out — never a lit window switching off.
+# Small patches suggest windows coming on, then fading away. Normal alpha
+# blending is not additive and can change the painted color under each patch.
 WIN_PERIODS = [187, 211, 239, 263, 293, 317, 347, 379, 401, 433, 467, 499, 541, 577]
 
 

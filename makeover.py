@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import struct
 import subprocess
 import sys
 import uuid
@@ -23,7 +24,19 @@ UI_DOMAINS = {'NSGlobalDomain', 'com.apple.dock', 'com.apple.finder',
 
 
 def scalar(value):
-    return type(value) in (bool, int, str) or (type(value) is float and math.isfinite(value))
+    if type(value) is float:
+        try:
+            # defaults -float writes single precision; reject lossy apply/undo values.
+            return math.isfinite(value) and struct.unpack('f', struct.pack('f', value))[0] == value
+        except OverflowError:
+            return False
+    return (type(value) is bool or (type(value) is int and -(2**63) <= value < 2**63)
+            or (type(value) is str and '\0' not in value))
+
+
+def valid_key(domain, key):
+    return (isinstance(domain, str) and domain in UI_DOMAINS and isinstance(key, str)
+            and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_. -]{0,200}', key))
 
 
 def same(a, b):
@@ -50,17 +63,27 @@ def write_key(domain, key, value):
 
 def load_settings(groups):
     catalog = json.loads((ROOT / 'preset.json').read_text())
+    if not isinstance(catalog, dict) or not all(isinstance(g, str) for g in catalog):
+        raise ValueError('Unexpected preset catalog')
     selected = list(catalog) if groups == ['all'] else groups
     if not selected or set(selected) - set(catalog):
         raise ValueError('Groups: ' + ', '.join(catalog) + ', all')
-    settings = []
+    settings, seen = [], set()
     for group in dict.fromkeys(selected):
-        for domain, key, value, label in catalog[group]:
+        if not isinstance(catalog[group], list):
+            raise ValueError('Unexpected preset group: ' + group)
+        for entry in catalog[group]:
+            if not isinstance(entry, list) or len(entry) != 4:
+                raise ValueError('Unexpected preset entry')
+            domain, key, value, label = entry
+            if not valid_key(domain, key) or (domain, key) in seen or not isinstance(label, str):
+                raise ValueError('Unexpected or duplicate preset key')
             if isinstance(value, str) and value.startswith('~/'):
                 value = str(Path(value).expanduser())
             if not scalar(value):
-                raise ValueError('Preset values must be scalar')
+                raise ValueError('Preset value cannot be written exactly: ' + key)
             settings.append({'domain': domain, 'key': key, 'after': value, 'label': label})
+            seen.add((domain, key))
     return settings
 
 
@@ -70,7 +93,7 @@ def plan(settings, reader=read_domain):
     for setting in settings:
         before = domains[setting['domain']].get(setting['key'])
         if before is not None and not scalar(before):
-            raise ValueError('Refusing to replace complex value: ' + setting['key'])
+            raise ValueError('Cannot safely restore original value: ' + setting['key'])
         if not same(before, setting['after']):
             changes.append(dict(setting, before=before))
     return changes
@@ -86,6 +109,11 @@ def save(path, data):
         stream.flush()
         os.fsync(stream.fileno())
     os.replace(temp, path)
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)  # Publish the journal name before changing preferences.
+    finally:
+        os.close(descriptor)
 
 
 @contextmanager
@@ -100,7 +128,7 @@ def locked(directory):
 def apply(changes, directory, reader=read_domain, writer=write_key):
     if not changes:
         return None
-    journal = directory / (datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    journal = directory / (datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
                            + '-' + uuid.uuid4().hex[:8] + '.json')
     record = {'format': 1, 'changes': []}
     for change in changes:
@@ -132,16 +160,16 @@ def undo(record, reader=read_domain, writer=write_key):
 
 def validate_record(record):
     # Keep old backups usable when the selectable preset evolves.
-    if not isinstance(record, dict) or record.get('format') != 1 or not isinstance(record.get('changes'), list):
+    if (not isinstance(record, dict) or type(record.get('format')) is not int
+            or record['format'] != 1 or not isinstance(record.get('changes'), list)):
         raise ValueError('Not a makeover backup')
     seen = set()
     for change in record['changes']:
-        if not isinstance(change, dict) or not isinstance(change.get('key'), str):
+        if (not isinstance(change, dict) or not {'domain', 'key', 'before', 'after'} <= change.keys()
+                or not valid_key(change['domain'], change['key'])):
             raise ValueError('Unexpected backup entry')
         pair = (change['domain'], change['key'])
-        if (change['domain'] not in UI_DOMAINS or pair in seen
-                or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_. -]{0,200}', change['key'])
-                or not scalar(change['after'])):
+        if pair in seen or not scalar(change['after']):
             raise ValueError('Unexpected or duplicate backup key')
         if change['before'] is not None and not scalar(change['before']):
             raise ValueError('Unexpected backup value')
@@ -153,21 +181,22 @@ def main():
     parser.add_argument('action', nargs='?', default='plan', choices=['plan', 'apply', 'undo', 'backups'])
     parser.add_argument('--groups', default=','.join(CORE), help='Comma-separated groups; use all for every preset group')
     parser.add_argument('--backup', type=Path, help='Exact backup JSON file to undo (see backups command)')
+    parser.add_argument('--confirm', action='store_true', help='Ask before applying the displayed changes')
     args = parser.parse_args()
     if sys.platform != 'darwin':
         parser.error('Native setup requires macOS. The wallpaper HTML also works in modern browsers.')
     if os.geteuid() == 0:
         parser.error('Run as your normal user, without sudo.')
     if args.action == 'backups':
-        for path in sorted(STATE.glob('*.json'), reverse=True):
+        for path in sorted(STATE.glob('*.json'), key=lambda p: p.stat().st_mtime_ns, reverse=True):
             print(path)
         return
     if args.action == 'undo':
         if not args.backup:
             parser.error('Choose an exact file with --backup. Run backups to list them.')
-        record = json.loads(args.backup.read_text())
-        validate_record(record)
         with locked(STATE):
+            record = json.loads(args.backup.expanduser().read_text())
+            validate_record(record)
             conflicts = undo(record)
         print('Restored unchanged makeover values. Backups and created folders are retained.')
         if conflicts:
@@ -185,9 +214,16 @@ def main():
     if args.action == 'plan':
         print('Preview only. Use apply with the same --groups to save a backup and apply.')
         return
+    if args.confirm:
+        try:
+            answer = input('Save a backup and apply these settings? Type yes: ')
+        except EOFError:
+            answer = ''
+        if answer != 'yes':
+            print('No changes made.')
+            return
     with locked(STATE):
-        # Re-read inside the lock. A second invocation must not overwrite the original backup.
-        changes = plan(settings)
+        # apply() rejects edits since this exact preview; never silently rebase it.
         for change in changes:
             if (change['domain'], change['key']) == ('com.apple.screencapture', 'location'):
                 Path(change['after']).mkdir(parents=True, exist_ok=True)

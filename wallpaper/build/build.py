@@ -8,7 +8,9 @@ assets); this script embeds them and emits the finished single-file wallpaper.
     python3 build/build.py
 """
 import base64
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -21,7 +23,7 @@ import scene               # noqa: E402
 OUT = HERE / 'out'
 TARGET = HERE.parent / 'index.html'
 
-# Two boats, both verified over open water. Bob periods from the coprime set.
+# Two boats placed over the near river, with different bob periods.
 BOATS = [
     dict(left=86.0026, top=93.5547, width=4.2, sail=160, bob=7.1, phase=-23),
     dict(left=93.0990, top=95.5000, width=3.2, sail=160, bob=8.3, phase=-15),
@@ -35,7 +37,7 @@ EMITTERS = [
     dict(x=88.9, y=60.0, w=8, h=12, c='#3fc9ff', t=23.1, lo=.18, hi=.30, d=-19),    # right towers
 ]
 
-# 37/53/71 are coprime, so no two signs ever stutter together.
+# Different periods and phases reduce regular coincidence between signs.
 BALLAST = [
     dict(x=82.8, y=65.0, w=3.4, h=13.0, c='#e0409a', t=53, d=0),
     dict(x=82.4, y=53.5, w=2.4, h=2.6, c='#ff5ff0', t=71, d=-24),
@@ -81,8 +83,12 @@ def ballast():
 
 
 def main():
-    if not (OUT / 'city.webp').exists():
-        print('Run prepare_images.py first.', file=sys.stderr)
+    required = [OUT / name for name in ('city.webp', 'boat.webp', 'city-blur.webp')]
+    required.append(HERE / 'falltile.txt')
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        print('Missing build assets: ' + ', '.join(missing), file=sys.stderr)
+        print('Run prepare_images.py for WebP assets; restore falltile.txt if missing.', file=sys.stderr)
         return 1
 
     tiles = {name: uri for name, uri, *_ in
@@ -102,6 +108,7 @@ def main():
         RAIN_NEAR=tiles['near'], RAIN_WARM=tiles['warm'],
     )
 
+    scatter.rng.seed(20260911)
     parts = {
         'IMPACT': scatter.impact_field(),
         'RIVER': scatter.river_impacts(),
@@ -115,7 +122,13 @@ def main():
         'EMITTERS': emitters(),
     }
     html = scene.DOC.substitute(CSS=css, **{k: ''.join(v) for k, v in parts.items()})
-    TARGET.write_text(html, encoding='utf-8')
+    descriptor, temporary = tempfile.mkstemp(dir=TARGET.parent, prefix='.wallpaper-', suffix='.html')
+    try:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+            stream.write(html)
+        os.replace(temporary, TARGET)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
     print(f'wrote {TARGET}  {len(html)/1024/1024:.2f} MB')
     for k, v in parts.items():

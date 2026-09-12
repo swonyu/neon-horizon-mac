@@ -6,12 +6,15 @@ return function()
         hotkeys, saved = {}, {}
     end}
     local function bind(mods, key, callback)
-        local hotkey = hs.hotkey.bind(mods, key, callback)
-        if not hotkey then
-            handle:stop()
-            error("Could not bind hotkey: " .. key)
-        end
-        hotkeys[#hotkeys+1] = hotkey
+        local ok, err=pcall(function()
+            local hotkey=assert(hs.hotkey.new(mods, key, callback), "Could not create hotkey: "..key)
+            hotkeys[#hotkeys+1]=hotkey -- Own it before any operation that can fail.
+            for _, existing in ipairs(hs.hotkey.getHotkeys()) do
+                assert(existing.idx~=hotkey.idx, "Hotkey already in use: "..hotkey.idx)
+            end
+            assert(hotkey:enable(), "Could not enable hotkey: "..key)
+        end)
+        if not ok then handle:stop(); error(err, 0) end
     end
     local function focusedWindow()
         local win = hs.window.focusedWindow()

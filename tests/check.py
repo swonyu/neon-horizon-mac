@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Small standard-library checks; no personal preferences or login services changed."""
 import base64
-from contextlib import redirect_stdout
+from contextlib import contextmanager, ExitStack, redirect_stdout
 import io
 from collections import Counter
 import hashlib
@@ -14,6 +14,7 @@ import plistlib
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -97,6 +98,136 @@ for bad in [{'format': 0}, {'format': 1, 'changes': [{'domain': 'unknown', 'key'
         pass
 m.validate_record({'format':1, 'changes':[{'domain':'com.apple.dock', 'key':'oldPresetKey', 'after':True, 'before':None}]})
 assert not m.scalar(float('nan')) and not m.scalar(float('inf'))
+for value in (2**63, -(2**63)-1, 'bad\0text', 1e308, 1e-308, 0.12345678901234568):
+    assert not m.scalar(value)
+try:
+    m.plan([{'domain':'com.apple.dock','key':'size','after':48,'label':'Size'}], lambda _: {'size':0.1})
+    raise AssertionError('Preview accepted an original float that undo would round')
+except ValueError:
+    pass
+for bad in ({'format':True, 'changes':[]}, {'format':1, 'changes':[{}]},
+            {'format':1, 'changes':[{'domain':[], 'key':'size', 'before':None, 'after':True}]}):
+    try:
+        m.validate_record(bad)
+        raise AssertionError('Malformed backup accepted')
+    except ValueError:
+        pass
+
+# Exercise command boundaries, not just their lower-level helpers.
+with tempfile.TemporaryDirectory(prefix='neon-command-check-') as temporary:
+    directory = Path(temporary)
+    values = {'size':72}
+    reader = lambda domain: dict(values)
+    def writer(domain, key, value):
+        if value is None:
+            values.pop(key, None)
+        else:
+            values[key] = value
+    settings = [{'domain':'com.apple.dock', 'key':'size', 'after':48, 'label':'Size'}]
+    actual_plan, actual_apply, actual_undo = m.plan, m.apply, m.undo
+    @contextmanager
+    def intervening_edit(_):
+        values['size'] = 90
+        yield
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(m, 'STATE', directory))
+        stack.enter_context(patch.object(m.sys, 'platform', 'darwin'))
+        stack.enter_context(patch.object(m.os, 'geteuid', return_value=501))
+        stack.enter_context(patch.object(m.subprocess, 'check_output', return_value='27.0'))
+        stack.enter_context(patch.object(m, 'load_settings', return_value=settings))
+        stack.enter_context(patch.object(m, 'plan', side_effect=lambda s: actual_plan(s, reader)))
+        stack.enter_context(patch.object(m, 'apply', side_effect=lambda c,d: actual_apply(c,d,reader,writer)))
+        stack.enter_context(patch.object(m, 'undo', side_effect=lambda r: actual_undo(r,reader,writer)))
+        stack.enter_context(redirect_stdout(io.StringIO()))
+        with patch.object(m.sys, 'argv', ['makeover.py','apply']), patch.object(m, 'locked', intervening_edit):
+            try:
+                m.main()
+                raise AssertionError('Command replaced its displayed preview')
+            except RuntimeError:
+                pass
+        assert values == {'size':90}
+        journal = directory/'journal.json'
+        changes = [dict(settings[0], before=72),
+                   {'domain':'com.apple.dock', 'key':'other', 'before':None, 'after':True}]
+        journal.write_text(json.dumps({'format':1, 'changes':changes[:1]}))
+        values.update(size=48, other=True)
+        @contextmanager
+        def completed_apply(_):
+            journal.write_text(json.dumps({'format':1, 'changes':changes}))
+            yield
+        with patch.object(m.sys, 'argv', ['makeover.py','undo','--backup',str(journal)]), patch.object(m, 'locked', completed_apply):
+            m.main()
+        assert values == {'size':72}, 'Undo missed the last journal entry'
+        with patch.object(m.sys, 'argv', ['makeover.py','apply','--confirm']), patch('builtins.input', return_value='no'):
+            m.main()
+        with patch.object(m.sys, 'argv', ['makeover.py','apply','--confirm']), patch('builtins.input', side_effect=EOFError):
+            m.main()
+        assert values == {'size':72}, 'Declined preview changed preferences'
+
+    events = []
+    sync = os.fsync
+    def synchronized(fd):
+        events.append('directory' if stat.S_ISDIR(os.fstat(fd).st_mode) else 'file')
+        sync(fd)
+    def durable_writer(domain, key, value):
+        assert events[-2:] == ['file', 'directory']
+        writer(domain, key, value)
+    with patch.object(m.os, 'fsync', side_effect=synchronized):
+        actual_apply(actual_plan(settings, reader), directory, reader, durable_writer)
+    values['size'] = 72
+    def failed_publication(fd):
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError('simulated directory synchronization failure')
+        sync(fd)
+    with patch.object(m.os, 'fsync', side_effect=failed_publication):
+        try:
+            actual_apply(actual_plan(settings, reader), directory, reader, writer)
+            raise AssertionError('Failed journal publication permitted a preference write')
+        except OSError:
+            pass
+    assert values == {'size':72}
+    with patch.object(m, 'ROOT', directory):
+        for bad in ([], {'dock':None}, {'dock':[['unapproved.domain','size',48,'Size']]},
+                    {'dock':[['com.apple.dock','size',48,'Size']]*2},
+                    {'dock':[['com.apple.dock','size',0.1,'Size']]}):
+            (directory/'preset.json').write_text(json.dumps(bad))
+            try:
+                m.load_settings(['all'])
+                raise AssertionError('Malformed preset accepted')
+            except ValueError:
+                pass
+    for path in directory.glob('*.json'):
+        path.unlink()
+    older, newer = directory/'z.json', directory/'a.json'
+    older.write_text('{}'); newer.write_text('{}')
+    os.utime(older, ns=(1_000_000_000,1_000_000_000))
+    os.utime(newer, ns=(2_000_000_000,2_000_000_000))
+    output = io.StringIO()
+    with patch.object(m, 'STATE', directory), patch.object(m.sys, 'platform', 'darwin'), patch.object(m.os, 'geteuid', return_value=501), patch.object(m.sys, 'argv', ['makeover.py','backups']), redirect_stdout(output):
+        m.main()
+    assert output.getvalue().splitlines() == [str(newer), str(older)]
+print('PASS: command preview/undo races, confirmation, journal publication, input validation and backup ordering')
+
+if Path('/bin/zsh').exists():
+    with tempfile.TemporaryDirectory(prefix='neon-launcher-check-') as temporary:
+        directory = Path(temporary)
+        log = directory/'opened'
+        (directory/'open').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$NEON_TEST_OPEN_LOG"\n')
+        (directory/'open').chmod(0o755)
+        env = dict(os.environ, PATH=str(directory), NEON_TEST_OPEN_LOG=str(log))
+        for choice, expected in [('4', ['wallpaper/index.html']), ('5', ['-t','docs/SETUP.md'])]:
+            result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input=choice+'\n\n', text=True, capture_output=True, env=env)
+            assert result.returncode == 0 and log.read_text().splitlines() == expected
+        (directory/'python3').write_text('#!/bin/sh\nexit 7\n')
+        (directory/'python3').chmod(0o755)
+        for choice in ('1', '2', '3'):
+            result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input=choice+'\n\n', text=True, capture_output=True, env=env)
+            assert result.returncode == 7, 'Launcher lost the setup error status'
+        (directory/'python3').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$NEON_TEST_OPEN_LOG"\n')
+        backup_path = '/tmp/backup with a \\ literal.json'
+        result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input='3\n'+backup_path+'\nyes\n\n', text=True, capture_output=True, env=env)
+        assert result.returncode == 0 and log.read_text().splitlines() == ['makeover.py','undo','--backup',backup_path]
+    print('PASS: launcher preview/help without Python and preserved error status')
 
 # Exercise the actual defaults adapter in a brand-new, disposable domain only.
 if sys.platform == 'darwin':
@@ -182,14 +313,6 @@ assert '.rain.mid,.rain.near,.rain.warm{display:none}' in reduced  # far rain MU
 assert '.rain.far{opacity:.17}' in reduced                         # brighter than animated floor
 assert 'filter:blur' not in re.search(r'\.rain\.near\{[^}]*\}', page).group(0)
 
-# No two large-area periods may share a prime factor, or the frame relocks.
-periods = {'bloom':89,'sunpath':167,'haze-h':173,'haze-m':127,'haze-f':71,
-           'gust':47,'squall-a':79,'squall-b':97,'squall-c':113}
-for name, value in periods.items():
-    assert f'calc(var(--t)*{value}s)' in page, name
-import math
-assert all(math.gcd(x, y) == 1 for a, x in periods.items()
-           for b, y in periods.items() if a < b)
 # Every duration routes through the calm-tier variable, so #calm is one variable
 # rather than a duplicated block. Each time token in an animation declaration
 # must be preceded by `var(--t)*`.
@@ -230,74 +353,40 @@ assert agent['ProgramArguments'][-3:] == ['--port','8767','--open-plash']
 assert agent['RunAtLoad'] is True
 print('PASS: embedded art, scene layers, loopback HTTP allowlist, HEAD, headers and portable login service data')
 
-# File operations are real in a temporary folder; launchctl and app launch are mocked.
-with tempfile.TemporaryDirectory(prefix='neon-host-install-') as temporary:
-    loaded = False
-    fail_bootstrap = False
-    def launch(args, **kwargs):
-        global loaded
-        if args[1] == 'print':
-            return subprocess.CompletedProcess(args, 0 if loaded else 1)
-        if args[1] == 'bootstrap':
-            if fail_bootstrap:
-                raise subprocess.CalledProcessError(1, args)
-            loaded = True
-        if args[1] == 'bootout':
-            loaded = False
-        return subprocess.CompletedProcess(args, 0)
-    with socket.socket() as probe:
-        probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
-    with patch.object(host, 'INSTALL', Path(temporary)/'Wallpaper'), patch.object(host, 'AGENT', Path(temporary)/'agent.plist'), patch.object(host.subprocess, 'run', launch), redirect_stdout(io.StringIO()):
-        fail_bootstrap = True
-        try:
-            host.install(port)
-            raise AssertionError('bootstrap failure swallowed')
-        except subprocess.CalledProcessError:
-            pass
-        assert host.AGENT.exists() and not loaded
-        fail_bootstrap = False
-        host.install(port); assert loaded
-        host.install(port); assert loaded
-        host.uninstall(); assert not loaded and not host.AGENT.exists()
-        assert (host.INSTALL/'index.html').exists()
-        host.install(port); assert loaded
-        host.uninstall()
-        (host.INSTALL/'index.html').write_text('user edit')
-        try:
-            host.install(port)
-            raise AssertionError('edited install overwritten')
-        except ValueError:
-            pass
-        assert (host.INSTALL/'index.html').read_text() == 'user edit'
-print('PASS: login install/retry/repeat/uninstall/reinstall and preservation of edited files (launch mocked)')
+subprocess.run([sys.executable, str(ROOT/'tests/host-selfcheck.py')], check=True)
+subprocess.run([sys.executable, str(ROOT/'tests/build-selfcheck.py')], check=True)
 
 if shutil.which('node'):
     script = re.search(r'<script>(.*?)</script>',page,re.S).group(1)
-    stub = ("const assert=require('node:assert/strict');let paused,changed,added=[];"
-            "const document={hidden:false,body:{classList:{"
-            "toggle:(name,state)=>{assert.equal(name,'paused');paused=state;},"
-            "add:(name)=>added.push(name)}},"
-            "addEventListener:(name,callback)=>{assert.equal(name,'visibilitychange');changed=callback;}};")
-    probe = stub + "const location={hash:''};" + script + (
-        "\nassert.equal(paused,false);document.hidden=true;changed();assert.equal(paused,true);"
-        "document.hidden=false;changed();assert.equal(paused,false);"
-        "assert.deepEqual(added,[],'calm must not engage without the hash');")
-    subprocess.run(['node','-e',probe], check=True)
-    # The battery tier is the only power lever the page has: nothing in WebKit
-    # exposes Low Power Mode, so #calm is how a user slows every animation.
-    calm = stub + "const location={hash:'#calm'};" + script + (
-        "\nassert.deepEqual(added,['calm'],'#calm must engage the battery tier');")
-    subprocess.run(['node','-e',calm], check=True)
-    print('PASS: actual wallpaper script pauses, resumes and honours #calm (DOM mocked)')
+    stub = ("const assert=require('node:assert/strict');const classes={},listeners={};"
+            "const document={hidden:false,body:{classList:{toggle:(name,state)=>classes[name]=state}},"
+            "addEventListener:(name,callback)=>listeners[name]=callback};"
+            "const window={addEventListener:(name,callback)=>listeners[name]=callback};")
+    for initial in ('', '#calm'):
+        probe = stub + "const location={hash:" + json.dumps(initial) + "};" + script + (
+            "\nassert.equal(classes.paused,false);assert.equal(classes.calm,location.hash==='#calm');"
+            "document.hidden=true;listeners.visibilitychange();assert.equal(classes.paused,true);"
+            "document.hidden=false;listeners.visibilitychange();assert.equal(classes.paused,false);"
+            "location.hash='#calm';listeners.hashchange();assert.equal(classes.calm,true);"
+            "location.hash='';listeners.hashchange();assert.equal(classes.calm,false);")
+        subprocess.run(['node','-e',probe], check=True)
+    print('PASS: actual wallpaper script pauses, resumes and toggles #calm (DOM mocked)')
 else:
     print('SKIP: optional visibility execution check needs Node.js')
 
 profile = plistlib.loads((ROOT/'controls/Neon-Minimal.terminal').read_bytes())
 assert 'CommandString' not in profile and 'Shell' not in profile
-# Inspect every distributable file, including decoded Terminal data and embedded artwork chunks.
-for file in ROOT.rglob('*'):
-    if not file.is_file() or any(x in ('.git','__pycache__','generated-icons') for x in file.parts):
-        continue
+# Prune local-only directories before reading package content, including nested worktrees.
+def distributable_files():
+    ignored = {'.git', '.venv', '.worktrees', '__pycache__', 'generated-icons', 'backups'}
+    for parent, directories, files in os.walk(ROOT):
+        directories[:] = [d for d in directories if d not in ignored
+                          and Path(parent, d) != ROOT/'wallpaper/build/out']
+        for name in files:
+            file = Path(parent, name)
+            if name not in ('.git', '.DS_Store') and file.suffix not in ('.pyc', '.log') and not file.is_symlink():
+                yield file
+for file in distributable_files():
     raw = file.read_bytes()
     assert not re.search(rb'/(?:Users)/[A-Za-z0-9_. -]+/', raw), f'Personal path: {file.relative_to(ROOT)}'
     assert not re.search(rb'-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----',raw)
@@ -306,7 +395,7 @@ for value in profile.values():
     if isinstance(value, bytes):
         assert b'/Users/' not in value
 print('PASS: package privacy checks and inert Terminal profile')
-for doc in [ROOT/'README.md', *list((ROOT/'docs').glob('*.md'))]:
+for doc in [ROOT/'README.md', *list((ROOT/'docs').rglob('*.md'))]:
     for target in re.findall(r'\]\(([^)]+)\)', doc.read_text()):
         if not target.startswith(('http:', 'https:', '#')):
             assert (doc.parent/target.split('#')[0]).exists(), f'Broken link in {doc.name}: {target}'

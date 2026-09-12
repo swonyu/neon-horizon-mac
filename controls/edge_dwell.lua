@@ -9,19 +9,19 @@ return function(config)
     assert(finite(delay) and delay>0 and finite(strip) and strip>0, "Invalid delay or strip")
     assert(finite(top) and finite(bottom) and top>=0 and top<bottom and bottom<=1,
         "Invalid vertical zone")
-    local timer, side, blocked, tap
+    local timer, side, blocked, tap, displayWatcher, sleepWatcher
     local function cancel(requireLeave)
         if timer then timer:stop(); timer=nil end
         side=nil; blocked=requireLeave
     end
-    local function anyTrue(values)
-        for _, value in pairs(values) do if value==true then return true end end
+    local function anyTrue(values, ignoredKey)
+        for key, value in pairs(values) do if key~=ignoredKey and value==true then return true end end
         return false
     end
     local function inputBlocked()
         return hs.eventtap.isSecureInputEnabled()
             or anyTrue(hs.eventtap.checkMouseButtons())
-            or anyTrue(hs.eventtap.checkKeyboardModifiers())
+            or anyTrue(hs.eventtap.checkKeyboardModifiers(), "capslock") -- Latched state, not a held key.
     end
     local function zone(point)
         -- ponytail: one display only; validate shortcut focus before adding multi-display support.
@@ -56,17 +56,29 @@ return function(config)
             end
         end)
     end
-    local events=hs.eventtap.event.types
-    tap=hs.eventtap.new({events.mouseMoved, events.leftMouseDown, events.leftMouseUp,
-        events.leftMouseDragged, events.rightMouseDown, events.rightMouseUp,
-        events.rightMouseDragged, events.otherMouseDown, events.otherMouseUp,
-        events.otherMouseDragged, events.flagsChanged}, function(event)
-        if event:getType()==events.mouseMoved then observe(event:location()) else cancel(true) end
-        return false -- Do not consume clicks, drags, motion, or modifier events.
-    end):start()
-    local displayWatcher=hs.screen.watcher.new(function() cancel(true) end):start()
-    local sleepWatcher=hs.caffeinate.watcher.new(function() cancel(true) end):start()
-    return {stop=function()
-        cancel(true); tap:stop(); displayWatcher:stop(); sleepWatcher:stop()
+    local handle={stop=function()
+        cancel(true)
+        if tap then tap:stop() end
+        if displayWatcher then displayWatcher:stop() end
+        if sleepWatcher then sleepWatcher:stop() end
     end}
+    local ok, err=pcall(function()
+        local events=hs.eventtap.event.types
+        tap=hs.eventtap.new({events.mouseMoved, events.leftMouseDown, events.leftMouseUp,
+            events.leftMouseDragged, events.rightMouseDown, events.rightMouseUp,
+            events.rightMouseDragged, events.otherMouseDown, events.otherMouseUp,
+            events.otherMouseDragged, events.flagsChanged}, function(event)
+            if event:getType()==events.mouseMoved then observe(event:location()) else cancel(true) end
+            return false -- Do not consume clicks, drags, motion, or modifier events.
+        end)
+        tap:start()
+        assert(tap:isEnabled(), "Could not start edge switching. Enable Hammerspoon in "..
+            "System Settings > Privacy & Security > Accessibility, then reload your config.")
+        displayWatcher=hs.screen.watcher.new(function() cancel(true) end)
+        displayWatcher:start()
+        sleepWatcher=hs.caffeinate.watcher.new(function() cancel(true) end)
+        sleepWatcher:start()
+    end)
+    if not ok then handle:stop(); error(err, 0) end
+    return handle
 end

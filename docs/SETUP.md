@@ -4,13 +4,13 @@ Keep this folder somewhere permanent. Start with the preview; choose the changes
 
 ## 1. Apply the native preset
 
-Double-click `Start.command` in the repository root. Option 1 previews the complete preset; option 2 shows it again, asks you to type `yes`, saves a backup, then applies it. If Python is missing, install Python 3 from [python.org](https://www.python.org/downloads/macos/) or use the manual steps below. No packages from pip are required.
+Double-click `Start.command` in the repository root. Option 1 previews the complete preset; option 2 shows it again, asks you to type `yes`, saves a backup, then applies it. If Python is missing, install Python 3 from [python.org](https://www.python.org/downloads/macos/) or use the manual steps below. No packages from pip are required for the setup tool. Wallpaper rebuilding has separate optional dependencies listed in the README.
 
 From a terminal opened in the repository folder:
 
 ```sh
 python3 makeover.py plan --groups all
-python3 makeover.py apply --groups all
+python3 makeover.py apply --groups all --confirm
 ```
 
 The complete preset includes:
@@ -24,6 +24,8 @@ The complete preset includes:
 | Calendar | Week numbers and activity shading in Year view |
 | Clipboard | Native history enabled for seven days |
 | Corners | Hold Option: top-left Mission Control, bottom-left Desktop, top-right Lock Screen, bottom-right Quick Note |
+
+The tool refuses values it cannot write and restore exactly, including decimal values the native preference writer would round.
 
 The screenshot folder is created if needed. Existing screenshots are not moved. Desktop files remain in Finder's Desktop folder. Clipboard history applies to future supported copies; it cannot recover earlier copies or promise permanent storage of everything.
 
@@ -61,7 +63,7 @@ python3 wallpaper/host.py --install
 
 The installer copies only the HTML and host script into `~/Library/Application Support/Neon Horizon Makeover/Wallpaper`, writes `~/Library/LaunchAgents/org.neonhorizon.wallpaper.plist`, and starts the host. It opens Plash only after the listening socket is ready. Add/select the URL in Plash once. Turn off Plash's separate Launch at login option to avoid a startup race. The installed copy works even if you move the repository afterward.
 
-Repeating the command keeps an identical running install. A matching partial install can be resumed. It refuses different or edited setup files, a changed port/interpreter configuration, or a port occupied by another service. If setup stops partway, the two exact locations above contain its files; the disable command below can remove a recognized service file. It will not replace another existing installation.
+Repeating the command verifies an identical running install and restores any missing matching files. It checks the loaded service identity and the served artwork before reporting success. A matching partial install can be resumed. It refuses different or edited setup files, a changed port/interpreter configuration, or a port occupied by another service. If setup stops partway, the two exact locations above contain its files; the disable command below can remove a recognized service file. A malformed or edited plist is preserved: keep a copy and inspect it before manually moving it aside, then retry. Do not remove an unfamiliar service by its label. It will not replace another existing installation.
 
 To disable the login host:
 
@@ -171,11 +173,13 @@ dofile(hs.configdir .. "/neon_horizon/init.example.lua")
 ```
 
 5. Reload Hammerspoon's configuration. With exactly one display attached, the helper detects its ID locally. Hold the pointer in the middle **40–60%** of the far-left/right **2-point strip** for **two continuous seconds**.
-6. It sends Control-Left/Right once. Leave the edge before another switch. Clicks, dragging, held modifiers, secure input, sleep, and display changes cancel pending switches. At the first/last Space the native shortcut may have nowhere to move; it does not wrap around.
+6. It sends Control-Left/Right once. Caps Lock may remain on. Leave the edge before another switch. Clicks, dragging, held modifiers, secure input, sleep, and display changes cancel pending switches. At the first/last Space the native shortcut may have nowhere to move; it does not wrap around.
+
+If Accessibility prevents the event tap from starting, the helper reports it and releases its startup resources. Grant permission through System Settings, then reload.
 
 For multiple displays it disables edge switching rather than guessing the active desktop. Reload after changing displays. If Control-Left/Right itself cannot switch desktops, correct that native shortcut before testing the helper. The OS decides which adjacent Space a shortcut enters, including full-screen app Spaces.
 
-To enable the optional window/app shortcuts too, uncomment the final line of `controls/init.example.lua` in the installed copy. Check that the key combinations are unused:
+To enable the optional window/app shortcuts too, uncomment the final line of `controls/init.example.lua` in the installed copy. Check that the key combinations are unused. If an existing Hammerspoon binding conflicts or a new binding fails, startup stops and removes the shortcuts created by that attempt while preserving the existing ones:
 
 | Keys | Action |
 |---|---|

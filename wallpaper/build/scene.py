@@ -1,18 +1,13 @@
 """The stylesheet and document template.
 
 Read the companion notes in docs/WALLPAPER.md before changing any number here.
-The three rules that keep this scene from degenerating back into a screensaver:
+The motion choices are deliberate, not measured rendering guarantees:
 
-  1. ONE camera law. .camera is a static overscale; .world translates; the near
-     plane is the only scale animation in the file.
-  2. COPRIME PERIODS. No two large-area elements share a prime factor, so the
-     frame does not return to a previous state inside ~39 minutes.
-  3. NO DWELL ON ANYTHING LARGE. Every large-area animation — the camera drift,
-     the near-plane dolly, the three haze bands, the boat bob — is asymmetric
-     with per-keyframe timing functions, so it never decelerates to a stop twice
-     a cycle. Small accent elements (glint flare, lamps, emitters, smears) keep a
-     plain symmetric ease on purpose: at their size and contrast the dwell is
-     below threshold, and the periods are coprime so they never dwell together.
+  1. .camera keeps a static overscale; .world translates; the near plane scales.
+  2. Many independent layers use different periods. Camera and near-plane clocks
+     intentionally match, and other small accents also share periods.
+  3. Unequal keyframe stops vary the rhythm. The cubic Bezier segments still
+     slow to zero at their endpoints; per-keyframe easing does not remove dwell.
 
 Durations all route through calc(var(--t)*...) so the calm tier (#calm) is one
 variable rather than a duplicated block.
@@ -27,9 +22,8 @@ body.calm{--t:3}
 
 .scene{position:fixed;inset:0;overflow:hidden}
 
-/* The camera no longer animates. A continuously animating scale() never lands
-   on a stable sample grid, so every fine edge in a 2.3x-upsampled painting
-   crawls; a static overscale lets the rasteriser settle. */
+/* Keep the camera scale static to avoid another changing image resample.
+   Rasterization quality and cost still depend on the browser and display. */
 .camera{container-type:size;position:absolute;inset:-2% -2% -.8%;
   transform:scale(1.012);transform-origin:50% 100%}
 .world{position:absolute;bottom:0;left:50%;width:max(100cqw,150cqh);aspect-ratio:3/2;
@@ -39,7 +33,7 @@ body.calm{--t:3}
 
 /* translateX(-50%) is folded into the keyframe literals: a calc() here and a
    transform there would fight, and the scene would shove half a world right.
-   Four unequal stops, per-keyframe easing, so there is no dwell. */
+   Four unequal stops vary the timing; eased segments still pause at endpoints. */
 @keyframes drift{
   0%{transform:translate3d(-50.22%,.06%,0);animation-timing-function:cubic-bezier(.36,0,.66,1)}
   34%{transform:translate3d(-49.86%,-.02%,0);animation-timing-function:linear}
@@ -47,8 +41,8 @@ body.calm{--t:3}
   100%{transform:translate3d(-50.22%,.06%,0)}}
 
 /* ---- depth: the near promenade is its own plane -------------------------- */
-/* Same image, same CachedImage, bounded to the wet stone and scaled against the
-   camera.
+/* Reuses the embedded image data, bounded to the wet stone and scaled against
+   the camera. This does not guarantee shared GPU surfaces or zero extra memory.
    The boundary is a FEATHERED MASK, not a clip-path. A hard clip was tried and
    fails: the plane and the base are the same picture at different scales, so a
    hard edge butts two copies that are offset by ~13px at the dolly extreme, and
@@ -76,12 +70,10 @@ body.calm{--t:3}
   100%{transform:scale(1.012)}}
 
 /* ---- bloom: the single biggest change ------------------------------------ */
-/* contrast(2.6) IS the threshold: CSS contrast is out = 2.6*in - 0.8, crossing
-   zero at in=.308, so after brightness(1.5) everything originally below ~.205
-   luma goes hard black and contributes nothing under screen. Only clipped light
-   sources bleed; the painting's darks are protected.
-   Rendering at 25% and scaling 4x makes blur(5px) an effective 20px radius at
-   1/16 the kernel cost. translateZ(0)+backface-visibility pin the raster scale. */
+/* brightness(1.5) then contrast(2.6) maps channels below ~.205 to black
+   before blur. This is a per-channel threshold, not a luminance cutoff.
+   The quarter-sized element scales blur(5px) to 20px in world coordinates;
+   the browser chooses its raster scale and GPU cost has not been profiled. */
 .bloom-wrap{position:absolute;inset:0;overflow:hidden;mix-blend-mode:screen;
   pointer-events:none;opacity:.2;
   animation:bloom calc(var(--t)*89s) ease-in-out infinite;will-change:opacity}
@@ -142,10 +134,8 @@ body.calm{--t:3}
    mask that would otherwise erase it. It also drops .wet's fade, which exists
    to die toward the promenade's parapet and means nothing on open water. */
 .wet.river{-webkit-mask-image:none;mask-image:none}
-/* Paired bright-inner / dark-outer edge. A single hairline at .2 alpha over
-   ground whose p95 is L=169 lifts luminance ~7% — below threshold, which is why
-   the old rings appeared only over dark pavement and read as broken arcs. The
-   dark outer edge doubles local contrast at zero cost. */
+/* Paired bright-inner / dark-outer edges help the rings remain legible over
+   both dark and bright pavement. Rendered contrast has not been measured. */
 .sp{position:absolute;width:var(--w);height:var(--h);border-radius:50%;box-sizing:border-box;
   transform:translate(-50%,-50%) scale(.06);
   box-shadow:inset 0 0 0 .7px var(--c), 0 0 0 .5px #140d2b73, 0 0 3px .5px #d9c4ff26;
@@ -177,12 +167,11 @@ body.calm{--t:3}
 .boat-bob{position:relative;will-change:transform;
   animation:bob calc(var(--t)*var(--bob-time)) linear infinite;
   animation-delay:calc(var(--t)*var(--phase))}
-/* transform-origin:50% 0 with top:78% puts the mirrored box at the waterline.
-   The shipped top:55%/height:100% scaled about its own centre, landing the
-   reflection at 80-130% and overlapping the bottom fifth of the hull. */
+/* Translate the sprite up one height before the negative scale, so its bottom
+   edge lands at top:78% and the reflected image extends below the waterline. */
 .boat-reflection{position:absolute;left:0;top:78%;width:100%;height:100%;
   background:var(--boat-image) center/contain no-repeat;
-  transform:scaleY(-.46);transform-origin:50% 0;opacity:.18;
+  transform:scaleY(-.46) translateY(-100%);transform-origin:50% 0;opacity:.18;
   animation:reflection calc(var(--t)*var(--bob-time)) ease-in-out infinite;
   animation-delay:calc(var(--t)*(var(--phase) + var(--bob-time)/2));will-change:opacity}
 /* A vertical light column is what every other light source in this painting
@@ -208,7 +197,7 @@ body.calm{--t:3}
   68%{transform:translateY(-.2px) rotate(-.1deg);animation-timing-function:linear}
   100%{transform:translateY(-.7px) rotate(-.35deg)}}
 /* The negative scaleY must be in BOTH stops or the sprite flips upright. */
-@keyframes reflection{0%,100%{opacity:.13;transform:scaleY(-.46)}50%{opacity:.28;transform:scaleY(-.6)}}
+@keyframes reflection{0%,100%{opacity:.13;transform:scaleY(-.46) translateY(-100%)}50%{opacity:.28;transform:scaleY(-.6) translateY(-100%)}}
 @keyframes colshimmer{0%,100%{transform:scaleY(.86);opacity:.38}50%{transform:scaleY(1.14);opacity:.6}}
 
 /* ---- falls --------------------------------------------------------------- */
@@ -235,9 +224,8 @@ body.calm{--t:3}
 .spray.b{left:68.6%;top:63.6%;animation-delay:calc(var(--t)*-7.5s)}
 @keyframes plume{0%{transform:translateY(6%) scale(.86);opacity:0}
   18%{opacity:.5}55%{opacity:.42}100%{transform:translateY(-16%) scale(1.3);opacity:0}}
-/* Mist rises where the painter banked it. No filter:blur() — a widened
-   transparent stop gives the same softness for free, and a filter on a
-   permanently animating layer is real per-frame GPU work. */
+/* Mist rises where the painter banked it. Wide transparent stops provide
+   softness without an additional blur filter. */
 .steam{position:absolute;left:83.5%;top:43%;width:15%;height:23%;pointer-events:none;
   background:radial-gradient(ellipse at 42% 84%,#b9aee03d,transparent 66%);
   animation:rise calc(var(--t)*34s) linear infinite}
@@ -287,8 +275,8 @@ body.calm{--t:3}
   animation-delay:calc(var(--t)*var(--d))}
 @keyframes ballast{0%,88.9%{opacity:.30}89.0%{opacity:.04}89.25%{opacity:.44}
   89.4%{opacity:.06}89.8%{opacity:.40}90.0%{opacity:.05}90.6%{opacity:.30}100%{opacity:.30}}
-/* Additive only: a patch can make a painted window brighter, never darker, so
-   every event is a light coming ON and later fading out. */
+/* Small colored patches suggest windows coming on and later fading out.
+   Normal alpha blending can change the underlying hue as well as brightness. */
 .win{position:absolute;width:.28%;height:.42%;opacity:0;background:#ffb765;
   will-change:opacity;
   animation:win calc(var(--t)*var(--wt)) linear infinite;
@@ -398,8 +386,7 @@ body.calm{--t:3}
 .rain.mid::before{background-image:url("${RAIN_MID}")}
 /* Near rain is absent from the sky entirely: 1.5px near-plane drops falling
    across the painted sun read as dirt on the lens. Its defocus is baked into
-   the tile, never applied with filter:blur() — a filter here would re-apply
-   every frame forever, on battery. */
+   the tile, avoiding a separate CSS blur filter on the moving rain layer. */
 .rain.near{opacity:.30;--speed:calc(var(--t)*4.6s);
   animation-name:gust-near,squall-c;animation-duration:calc(var(--t)*47s),calc(var(--t)*113s);
   animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite;
@@ -428,9 +415,7 @@ body.calm{--t:3}
 @keyframes squall-warm{0%,100%{opacity:.09}53%{opacity:.17}76%{opacity:.12}}
 
 /* ---- the storm clock ----------------------------------------------------- */
-/* 433 is prime. 437 = 19x23 and 23 is already a period in this file, so they
-   would phase-lock once per cycle — the opposite of the intent.
-   Two clocks on two elements so nothing silently cancels: the squalls animate
+/* Two clocks on two elements so nothing silently cancels: the squalls animate
    each .rain layer's own opacity, the storm animates the wrappers. */
 .storm-rain-wrap{position:absolute;inset:0;pointer-events:none;
   animation:storm-haze calc(var(--t)*433s) ease-in-out infinite}
@@ -440,8 +425,7 @@ body.calm{--t:3}
    opacity animation is an isolated group, and mix-blend-mode inside it can no
    longer see the painting. Driving a registered custom property instead leaves
    the wrapper fully opaque and un-isolated, so their screen blends still reach
-   the backdrop. The initial value is the time-weighted mean, which makes the
-   Reduce-Motion still correct for free. */
+   the backdrop. The initial value supplies a static reduced-motion baseline. */
 @property --storm{syntax:"<number>";inherits:true;initial-value:0.85}
 .storm-wrap{position:absolute;inset:0;pointer-events:none;
   animation:storm-var calc(var(--t)*433s) ease-in-out infinite}
@@ -457,8 +441,8 @@ body.calm{--t:3}
 /* Lightning. The ellipse radii are sized so the gradient reaches transparent
    INSIDE the element box: a radius that overruns the box gets clipped by the
    box edge and draws a hard horizontal line across the sky.
-   Gated to the storm peak, masked inside the world so it crops with
-   the painting, and deliberately soft: a wallpaper rewards a glance, it must
+   Masked inside the world so it crops with the painting, and deliberately
+   soft: a wallpaper rewards a glance, it must
    never demand one. Two flashes per 433s cycle, alternating 196s and 237s
    apart, each a 4.3s event whose visible energy is front-loaded into the first
    ~0.5s, at an amplitude that lifts the cloud bank rather than strobing the
@@ -509,17 +493,14 @@ body.calm{--t:3}
 /* ---- states -------------------------------------------------------------- */
 .paused *,.paused *::before,.paused *::after{animation-play-state:paused!important}
 
-/* The accessible path was the worst frame in the file: dimmer than every frame
-   of the animated path, and it deleted the rain from a wallpaper called Rain on
-   the River. Frozen values are time-weighted MEANS, not floors. */
+/* Keep a static composition with distant rain. The atmospheric layers retain
+   their declared storm-scaled baselines; the other values are chosen stills. */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important}
   .rain.mid,.rain.near,.rain.warm{display:none}
   .rain.far{opacity:.17}
   .rain.far::before{transform:translate3d(0,384px,0)}
   .sp,.ballast,.win,.traffic,.bolt{display:none}
-  .light{opacity:.68}
-  .haze.h{opacity:.78}.haze.m{opacity:.70}.haze.f{opacity:.68}
   .spray{opacity:.32}.spray.b{opacity:.26}
   .steam{opacity:.24}
   .bloom-wrap{opacity:.22}
@@ -538,7 +519,8 @@ DOC = Template('''<!doctype html>
   audio, no tracking. Pauses when the host reports the page hidden and honours
   Reduce Motion.
 
-  Load index.html#calm to run every animation at one third speed for battery.
+  Load index.html#calm to run every animation at one third speed.
+  Slower motion does not guarantee fewer rendered frames or lower power use.
   Pair it with Plash's own deactivate-on-battery setting.
 
   Regenerate with: python3 build/build.py   (see build/scene.py for the rules)
@@ -580,7 +562,8 @@ $EMITTERS
 <script>
 function syncVisibility(){document.body.classList.toggle('paused',document.hidden)}
 document.addEventListener('visibilitychange',syncVisibility);syncVisibility();
-if(location.hash==='#calm')document.body.classList.add('calm');
+function syncCalm(){document.body.classList.toggle('calm',location.hash==='#calm')}
+window.addEventListener('hashchange',syncCalm);syncCalm();
 </script>
 </body></html>
 ''')

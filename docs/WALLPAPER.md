@@ -1,149 +1,101 @@
 # The wallpaper scene
 
-Notes for anyone changing a number in `wallpaper/build/scene.py`. The scene is
-generated, not hand-edited: run `prepare_images.py` then `build.py`, never edit
-`wallpaper/index.html` directly.
+Edit the sources under `wallpaper/build/`, then use the [rebuild commands](../README.md#animated-wallpaper).
+The HTML is generated; do not hand-edit `wallpaper/index.html`.
 
-## What was wrong with the first version
+## Composition
 
-It was not short of motion — it had too much of the wrong kind, and none of it
-on the subject.
+The sunset and its reflection are the focal point. The foreground grade lowers
+bright pavement while retaining the sky, so small traffic lights, boats and rain
+impacts support that subject. The city and boat images are embedded WebPs, and
+seeded SVG rain tiles keep the page self-contained and offline.
 
-- Every keyframe block was a symmetric ease-in-out, so everything decelerated to
-  a dead stop twice per cycle: a pulse, not weather.
-- `glow 8s` divided into `drift 40s` exactly five times, so the whole frame
-  returned to an identical state **every 40 seconds** — long enough to notice,
-  short enough to memorise.
-- The painting's focal point, the sun and its specular column down the river,
-  had no animation within 15% in any direction. All the movement was in the dark
-  bottom-right corner, so the eye landed on the subject and found it dead.
-- The brightest pixels in the frame were the wet foreground pavement, which
-  out-punched the sunset at both ends of the histogram. The composition had no
-  value hierarchy.
-- Rain never landed. The whole mirror-wet promenade got two elliptical puddles
-  with eight rings between them; the river got nothing.
+`.camera` provides a static overscale; `.world` drifts; a masked near-plane copy
+of the painting scales slowly to suggest depth. Boats bob independently, and
+flipped reflections extend below their waterlines. The reflection transform
+translates the sprite before applying the negative vertical scale; without that
+translation, it renders upward into the hull.
 
-## The three rules
+Animation periods vary to reduce obvious synchronization. Some are deliberately
+coupled: the world drift and near-plane dolly both use 233 seconds. The falling
+tile offsets alone recur after about 48.91 minutes; this is not the repeat period
+of the entire rain field, whose gusts, squalls and storm have separate clocks.
+There is no measured full-scene recurrence claim.
 
-1. **One camera law.** `.camera` is a static overscale. `.world` translates. The
-   near plane is the only `scale` animation in the file. A continuously
-   animating scale never lands on a stable sample grid, so every fine edge in a
-   2.3×-upsampled painting crawls.
-2. **Coprime periods.** No two large-area elements may share a prime factor.
-   `tests/check.py` asserts this. The rain field now relocks every ~49 minutes
-   instead of every 75 seconds.
-3. **No dwell on anything large.** Every large-area animation — the camera
-   drift, the near-plane dolly, the three haze bands, the boat bob — is
-   asymmetric with **per-keyframe** timing functions, which apply per segment,
-   so none of them decelerates to a stop twice a cycle. Putting the bezier on
-   the element instead is the bug an implementer hits first; it reintroduces the
-   dwell at every stop.
+The irregular keyframes still use eased segments with zero endpoint velocity.
+They are an aesthetic choice, not proof of continuous motion without dwell.
+Lightning uses two offset events; both are not gated to the storm maximum.
 
-   Nine small accents (glint flare, smear, sail, reflection, colshimmer,
-   fallpulse, bobAir, lamp, emit) keep a plain symmetric ease on purpose: at
-   their size and contrast the dwell is below threshold, and their periods are
-   coprime so they never dwell together. The rule is about large areas, and it
-   is enforced there, not everywhere.
+## Measured image gates
 
-## The motion budget
+`prepare_images.py` prints these checks and exits before saving outputs if a gate
+fails. Values below use the script's 0–255 luma measurement on fixed image regions.
 
-At any instant no more than ~12% of frame area may carry above-threshold motion.
-
-**The sun's specular column owns the eye.** It is the painting's own focal
-point, it survives every crop down to 21:9, and it is the only element permitted
-a large-area luminance swing above 0.25. Everything else is support and stays
-below half its local contrast. Traffic, impact field, boats and their light
-columns together account for under 3% of the frame.
-
-## Measured gates
-
-`prepare_images.py` prints these and exits non-zero if they fail:
-
-| gate | why |
+| Gate | Purpose |
 |---|---|
-| promenade p95 lands 120–130 (from 170) | the pavement must stop out-punching the sunset |
-| promenade p05 stays ≤ 5 | blacks must not lift — that is the "gel over a painting" read |
-| sky mean unchanged ±1 | the knockdown is for the foreground only |
-| **sky p95 must exceed promenade p95** | the real gate: value hierarchy restored |
+| Promenade p95 between 120 and 130 | Keep bright pavement below the sunset |
+| Promenade p05 no more than 5 | Retain dark foreground values |
+| Sky mean changes by no more than 1 | Preserve the sky while grading the foreground |
+| Sky p95 exceeds promenade p95 | Verify the intended brightness hierarchy |
 
-The grade is applied in **linear light**, with Oklab chroma scaled alongside
-luminance. Compositing a flat dark colour in sRGB clips the speculars flat. And
-`a`/`b` must follow `L`: Oklab chroma is absolute, so holding them fixed under a
-dimmed `L` makes the pavement read as *more* saturated, not less.
+The script decodes sRGB to linear RGB, converts to Oklab, adjusts lightness and
+chroma together, then converts back. The separate preview bloom approximates the
+visual treatment; it is not a captured browser frame. `still.png` is a
+representative static painting for the ordinary wallpaper and Lock Screen.
+It omits animated overlays and display-dependent cropping/filtering.
 
-## Two bugs worth not repeating
+The checked reference environment is Python 3.12, NumPy 2.3.5, Pillow 12.3.0 and
+libwebp 1.6.0. Assembly resets its random seed on each build, including repeat
+calls in one process. All prepared assets must exist before assembly; complete
+HTML is published atomically. Encoder upgrades may change compressed bytes.
 
-Both are now regression-tested in `tests/check.py`.
+## Accessibility and calm mode
 
-**The rain was invisible.** The SVG tiles reference their gradient as
-`url(%23r)`. Writing the `#` pre-encoded and *then* percent-encoding the whole
-SVG yields `%2523` — a dangling paint-server reference. Every drop renders with
-no fill, and the rain silently disappears with no error anywhere.
+System Reduce Motion disables animation, hides transient accents and leaves a
+static composition. Elements need declared base values because `animation:none`
+removes values supplied only by keyframes. Light and haze keep their declared
+storm-scaled baseline; they must not become brighter than their normal range
+merely because animation is disabled.
 
-**Reduce Motion turned the emitters into blobs.** Under `animation:none` an
-element renders its *declared* value. `.emit` declared no `opacity`, so its
-default of `1` applied and each glow became a solid disc. Any element whose
-visible opacity comes only from keyframes needs a declared base — and that base
-should be the time-weighted **mean** of the keyframes, not the floor. The
-accessible path should be the best still frame in the file, not the dimmest.
+`index.html#calm` sets `--t:3`, slowing all animation by a factor of three. Adding
+or removing that fragment updates an open page immediately. It changes speed,
+not a measured frame-rate or energy limit. Use Plash's deactivate-on-battery
+setting when you want the animation to stop on battery.
 
-**A layer froze because one custom property was missing.** `.rain::before` sets
-`animation: rainfall-lg var(--speed) linear infinite`, and `--speed` was
-declared on `.far`, `.mid` and `.near` but not on `.warm`. An unresolvable
-`var()` makes the *whole shorthand* invalid at computed-value time, so every
-longhand it sets resets to its initial value — `animation-name: none` included.
-The later `animation-duration` override survived, so the rule still looked live
-in the inspector while the lamp-throw rain sat frozen. The base declaration now
-carries a fallback, and the test suite asserts every `.rain` variant declares
-`--speed`.
+The page pauses CSS animations, including pseudo-elements, when the browser
+reports it hidden. Another window covering the wallpaper does not necessarily
+produce that signal. Plash behavior and system settings determine the remaining
+lifecycle.
 
-**Three screen blends were inert.** `.storm-wrap` animated `opacity`, and an
-element with an opacity animation is an isolated group — so `mix-blend-mode` on
-`.light` and two haze bands could no longer see the painting behind them and
-silently composited source-over. The wrapper now animates a registered custom
-property (`--storm`) instead and stays fully opaque, so the blends reach the
-backdrop. Its `initial-value` is the time-weighted mean, which makes the
-Reduce-Motion still correct for free.
+## Depth, crop and rendering cost
 
-**Fourteen impact rings were multiplied by zero.** The river impacts were
-emitted inside `.plane-near`, whose mask is transparent on exactly the river
-side of the parapet. They were in the DOM, ran their animations, cost layers,
-and rendered nothing. They now live in `.world`.
+The near plane reuses the same encoded painting, but rendering it may allocate
+additional surfaces. Its feathered mask blends along the parapet. The mask's
+31.1-degree direction and 31.35% center follow from the two painted endpoints at
+world coordinates (24%, 62%) and (66%, 100%) in a 3:2 world.
 
-## The near plane
+The world uses a small capped vertical crop adjustment. A container aspect-ratio
+query changes it to a narrower pillarboxed composition on wide screens. Because
+it measures the expanded camera container, the nominal 1.85 container threshold
+occurs at a viewport ratio of approximately 1.829. Crossing it changes image
+scale abruptly. This is an intentional breakpoint, not a continuous cap.
 
-The promenade is a second copy of the same image (same `CachedImage`, zero extra
-bytes), bounded and scaled against the camera so the near field dollies while
-the far field translates.
+Bloom is rendered from a quarter-sized element and scaled up. That describes the
+geometry, not a guaranteed GPU saving: filter surfaces, cache behavior, device
+pixel ratio and compositing are browser-dependent. There is no measured 12%
+motion-area budget, 3% accent-area bound or 1/16 GPU-cost guarantee. Frame time,
+battery use and perceived smoothness require a rendered test on the target Mac.
 
-Its boundary is a **feathered mask, not a `clip-path`**. A hard clip was tried
-and fails: the plane and the base are the same picture at different scales, so a
-hard edge butts two copies offset by ~13px at the dolly extreme and the parapet
-visibly steps. Feathering cross-dissolves them and the offset disappears.
+## Regression checks
 
-The mask's `31.1deg` angle and `31.35%` stop centre are derived, not eyeballed.
-`.world`'s aspect ratio is pinned at 3/2, so the painted parapet's two endpoints
-— world (24%, 62%) and (66%, 100%) — both project to 31.35% along that gradient
-line on *every* display.
+`tests/check.py` checks embedded assets, SVG gradient encoding, declared static
+emitter opacity, rain speed fallbacks, storm blend structure, river-impact
+placement, visibility pausing and calm transitions. Its interaction execution
+uses a mocked document when Node.js is available.
 
-## Crop behaviour
-
-`.world` is bottom-anchored, so all overflow is thrown off the **top**: 6.25% at
-16:10, 15.6% at 16:9, 35.7% at 21:9. Untreated, the sun ends up jammed under the
-menu bar on a 4K external and gone entirely on an ultrawide.
-
-- Between 3:2 and 1.85:1 some of the overflow is moved to the bottom instead of
-  all being taken off the top. The correction is capped at `0.9cqh`, and that cap
-  binds for everything wider than about 1.545:1 — so at 16:9 it relocates ~4% of
-  the overflow, not half of it. The cap exists because a larger shift clips the
-  near boat off the bottom edge.
-- Past 1.85:1 the world stops growing and is pillarboxed against a 1.2 KB, 64×43
-  plate of itself. The browser's upscale is the blur; no filter pass is needed.
-  This also *shrinks* the animated area on the widest, most expensive displays.
-
-## Power
-
-`index.html#calm` sets `--t:3`, and every duration in the file routes through
-`calc(var(--t)*…)`, so one variable slows everything. Nothing in WebKit exposes
-Low Power Mode, so this is the only lever the page has — pair it with Plash's own
-deactivate-on-battery setting.
+`tests/build-selfcheck.py` checks reflection geometry, static atmosphere,
+repeatable assembly, missing-asset and publication failures, and preservation of
+previous outputs after a rejected grade. The last check requires Pillow and
+NumPy; the others use only the standard library. Lua checks cover the optional
+controls separately. See the [audit record](AUDIT-2026-09-12.md) for what was
+actually verified and which live checks remain.
