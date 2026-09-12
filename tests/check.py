@@ -256,10 +256,11 @@ class Elements(HTMLParser):
 p = Elements(); p.feed(page)
 assert all(p.counts[k] == v for k,v in
            {'boat-anchor':2,'rain':4,'cascade':2,'plane-near':1,'bloom':1,
-            'traffic':1,'lane':7,'emit':4,'ballast':3,'win':14,'bolt':2}.items()), p.counts
+            'traffic':1,'lane':7,'emit':4,'ballast':3,'win':8,'bolt':2,
+            'water-light':1,'near-rain-region':1}.items()), p.counts
 assert p.counts['puddle'] == 0          # replaced by the depth-graded impact field
 assert p.counts['wake'] == 0            # replaced by the boats' vertical light columns
-assert p.counts['sp'] >= 40 and p.counts['glint'] >= 55
+assert p.counts['sp'] == 50 and p.counts['glint'] == 30
 assets = [base64.b64decode(data, validate=True) for data in re.findall(r'data:image/webp;base64,([A-Za-z0-9+/=]+)',page)]
 assert len(assets) == 3, len(assets)    # city, boat, pillarbox plate
 assert all(data[:4] == b'RIFF' and data[8:12] == b'WEBP' for data in assets)
@@ -271,7 +272,7 @@ assert len(page.encode()) < 1_500_000, len(page)   # was 5.0 MB before the re-en
 # dangling paint-server reference — every drop renders with no fill and the rain
 # is silently invisible.
 tiles = re.findall(r'data:image/svg\+xml,([^"]+)', page)
-assert len(tiles) == 5, len(tiles)      # 4 rain tiles + the waterfall tile
+assert len(tiles) == 6, len(tiles)      # 4 rain tiles + waterfall + water mask
 assert all('%2523' not in t for t in tiles)
 assert sum('url%28%23r%29' in t for t in tiles) == 4
 
@@ -313,10 +314,9 @@ assert '.rain.mid,.rain.near,.rain.warm{display:none}' in reduced  # far rain MU
 assert '.rain.far{opacity:.17}' in reduced                         # brighter than animated floor
 assert 'filter:blur' not in re.search(r'\.rain\.near\{[^}]*\}', page).group(0)
 
-# Every duration routes through the calm-tier variable, so #calm is one variable
-# rather than a duplicated block. Each time token in an animation declaration
-# must be preceded by `var(--t)*`.
-assert '--t:1' in page and 'body.calm{--t:3}' in page
+# Durations stay fixed: changing them would change phase at the current elapsed
+# time. The generated script changes native playback rates instead.
+assert '--t:1' in page and 'body.calm{--t:3}' not in page
 for decl in re.findall(r'animation(?:-duration|-delay)?:[^;}]+', page):
     for time in re.finditer(r'\d+(?:\.\d+)?s\b', decl):
         if time.group(0) == '0s':
@@ -355,22 +355,42 @@ print('PASS: embedded art, scene layers, loopback HTTP allowlist, HEAD, headers 
 
 subprocess.run([sys.executable, str(ROOT/'tests/host-selfcheck.py')], check=True)
 subprocess.run([sys.executable, str(ROOT/'tests/build-selfcheck.py')], check=True)
+subprocess.run([sys.executable, str(ROOT/'tests/water-selfcheck.py')], check=True)
+subprocess.run([sys.executable, str(ROOT/'tests/framing-selfcheck.py')], check=True)
 
 if shutil.which('node'):
     script = re.search(r'<script>(.*?)</script>',page,re.S).group(1)
-    stub = ("const assert=require('node:assert/strict');const classes={},listeners={};"
-            "const document={hidden:false,body:{classList:{toggle:(name,state)=>classes[name]=state}},"
-            "addEventListener:(name,callback)=>listeners[name]=callback};"
-            "const window={addEventListener:(name,callback)=>listeners[name]=callback};")
+    stub = """
+const assert=require('node:assert/strict');
+const classes={},listeners={};
+function motion(time){return {currentTime:time,rate:1,updates:0,
+  updatePlaybackRate(rate){this.rate=rate;this.updates++}}}
+let animations=[motion(713),motion(8241)];
+const original=animations.slice();
+const document={hidden:false,body:{classList:{toggle:(name,state)=>classes[name]=state}},
+  getAnimations:()=>animations,addEventListener:(name,callback)=>listeners[name]=callback};
+const window={addEventListener:(name,callback)=>listeners[name]=callback,
+  matchMedia:query=>{assert.equal(query,'(prefers-reduced-motion: reduce)');
+    return {addEventListener:(name,callback)=>{assert.equal(name,'change');listeners.motion=callback}}}};
+function rates(rate){for(const animation of animations) assert.equal(animation.rate,rate)}
+"""
     for initial in ('', '#calm'):
         probe = stub + "const location={hash:" + json.dumps(initial) + "};" + script + (
             "\nassert.equal(classes.paused,false);assert.equal(classes.calm,location.hash==='#calm');"
+            "rates(location.hash==='#calm'?1/3:1);"
             "document.hidden=true;listeners.visibilitychange();assert.equal(classes.paused,true);"
             "document.hidden=false;listeners.visibilitychange();assert.equal(classes.paused,false);"
-            "location.hash='#calm';listeners.hashchange();assert.equal(classes.calm,true);"
-            "location.hash='';listeners.hashchange();assert.equal(classes.calm,false);")
+            "location.hash='#calm';listeners.hashchange();assert.equal(classes.calm,true);rates(1/3);"
+            "location.hash='';listeners.hashchange();assert.equal(classes.calm,false);rates(1);"
+            "assert.deepEqual(animations,original);"
+            "assert.deepEqual(animations.map(a=>a.currentTime),[713,8241]);"
+            "assert.ok(animations.every(a=>a.updates===3));"
+            "location.hash='#calm';listeners.hashchange();"
+            "animations=[];listeners.motion();"
+            "animations=[motion(0),motion(0)];listeners.motion();rates(1/3);"
+            "assert.ok(animations.every(a=>a.updates===1));")
         subprocess.run(['node','-e',probe], check=True)
-    print('PASS: actual wallpaper script pauses, resumes and toggles #calm (DOM mocked)')
+    print('PASS: wallpaper script visibility, phase-preserving rate calls and recreated animations (DOM/API mocked)')
 else:
     print('SKIP: optional visibility execution check needs Node.js')
 

@@ -33,6 +33,27 @@ def check():
     assert not re.search(r'\.(?:light|haze\.[hmf])\{', reduced), 'Keep the storm-scaled static baseline'
     print('PASS: reflection geometry and reduced-motion atmospheric baseline')
 
+    # The mask must stay still while a whole texture period passes beneath it.
+    shimmer = re.search(r'\.glit\{([^}]*)', css).group(1)
+    stripe = re.search(r'\.glit::before\{([^}]*)', css).group(1)
+    travel = float(re.search(r'@keyframes crawl\{to\{transform:translateY\(([\d.]+)px\)', css).group(1))
+    period = float(re.search(r'transparent ([\d.]+)px\)', stripe).group(1))
+    overscan = float(re.search(r'inset:-([\d.]+)px', stripe).group(1))
+    assert travel == period == overscan
+    assert 'mask-image:' in shimmer and 'animation:' not in shimmer
+    assert 'overflow:hidden' in shimmer and 'mask-image:' not in stripe
+    for selector in ('.paused *,.paused *::before,.paused *::after',
+                     '*,*::before,*::after'):
+        scope = css if selector.startswith('.paused') else reduced
+        rule = re.search(re.escape(selector) + r'\{([^}]*)', scope).group(1)
+        assert 'will-change:auto!important' in rule
+    river = re.search(r'\.wet\.river\{([^}]*)', css).group(1)
+    lights = re.search(r'\.water-light\{([^}]*)', css).group(1)
+    assert 'mask-image:var(--water-mask)' in river and 'mask-image:var(--water-mask)' in lights
+    assert 'mix-blend-mode:screen' in lights and 'mix-blend-mode' not in river
+    assert build.EMITTERS[3]['x'] == 75.74 and build.EMITTERS[3]['y'] == 38.02
+    print('PASS: stationary shimmer envelope, water clipping and inactive preparation hints')
+
     page = (ROOT / 'wallpaper/index.html').read_text()
     assets = [base64.b64decode(data, validate=True) for data in
               re.findall(r'data:image/webp;base64,([A-Za-z0-9+/=]+)', page)]

@@ -3,31 +3,31 @@
 Read the companion notes in docs/WALLPAPER.md before changing any number here.
 The motion choices are deliberate, not measured rendering guarantees:
 
-  1. .camera keeps a static overscale; .world translates; the near plane scales.
+  1. .camera defines the viewport; .world fits and drifts; the near plane scales.
   2. Many independent layers use different periods. Camera and near-plane clocks
      intentionally match, and other small accents also share periods.
   3. Unequal keyframe stops vary the rhythm. The cubic Bezier segments still
      slow to zero at their endpoints; per-keyframe easing does not remove dwell.
 
-Durations all route through calc(var(--t)*...) so the calm tier (#calm) is one
-variable rather than a duplicated block.
+Calm mode changes playback rate through the native animation API so switching
+speed preserves the current pose instead of changing animation durations.
 """
 from string import Template
 
 CSS = Template(r'''
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
 :root{--t:1;--city-image:url("${CITY}");--boat-image:url("${BOAT}");
-  --city-blur:url("${CITYBLUR}")}
-body.calm{--t:3}
+  --city-blur:url("${CITYBLUR}");--water-mask:url("${WATERMASK}")}
 
 .scene{position:fixed;inset:0;overflow:hidden}
 
-/* Keep the camera scale static to avoid another changing image resample.
-   Rasterization quality and cost still depend on the browser and display. */
-.camera{container-type:size;position:absolute;inset:-2% -2% -.8%;
-  transform:scale(1.012);transform-origin:50% 100%}
-.world{position:absolute;bottom:0;left:50%;width:max(100cqw,150cqh);aspect-ratio:3/2;
-  transform:translate3d(-50.22%,.06%,0);
+/* One continuous fit on every display; two percent overscan covers the drift.
+   The existing blurred plate fills any space outside the painting. */
+.camera{container-type:size;position:absolute;inset:0}
+.world{position:absolute;top:50%;left:50%;width:min(102cqw,153cqh);aspect-ratio:3/2;
+  container-type:inline-size;overflow:hidden;
+  transform:translate3d(-50.22%,-49.94%,0);
+  box-shadow:0 0 100px 30px #0a0820;
   animation:drift calc(var(--t)*233s) linear infinite;will-change:transform}
 .city{position:absolute;inset:0;background:var(--city-image) center/100% 100% no-repeat}
 
@@ -35,10 +35,10 @@ body.calm{--t:3}
    transform there would fight, and the scene would shove half a world right.
    Four unequal stops vary the timing; eased segments still pause at endpoints. */
 @keyframes drift{
-  0%{transform:translate3d(-50.22%,.06%,0);animation-timing-function:cubic-bezier(.36,0,.66,1)}
-  34%{transform:translate3d(-49.86%,-.02%,0);animation-timing-function:linear}
-  61%{transform:translate3d(-49.78%,-.06%,0);animation-timing-function:cubic-bezier(.3,0,.7,1)}
-  100%{transform:translate3d(-50.22%,.06%,0)}}
+  0%{transform:translate3d(-50.22%,-49.94%,0);animation-timing-function:cubic-bezier(.36,0,.66,1)}
+  34%{transform:translate3d(-49.86%,-50.02%,0);animation-timing-function:linear}
+  61%{transform:translate3d(-49.78%,-50.06%,0);animation-timing-function:cubic-bezier(.3,0,.7,1)}
+  100%{transform:translate3d(-50.22%,-49.94%,0)}}
 
 /* ---- depth: the near promenade is its own plane -------------------------- */
 /* Reuses the embedded image data, bounded to the wet stone and scaled against
@@ -86,7 +86,11 @@ body.calm{--t:3}
 /* ---- the focal point: the sun's specular column -------------------------- */
 /* The painting's own subject. It had no animation within 15% in any direction,
    which is why the eye had to go hunting in the dark corner for movement. */
-.sunpath{position:absolute;left:50.8%;top:31%;width:9%;height:42%;
+.water-light{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+  -webkit-mask-image:var(--water-mask);mask-image:var(--water-mask);
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.sunpath{position:absolute;left:54%;top:48%;width:3.2%;height:14%;
   transform:translateX(-50%) scaleX(.88);mix-blend-mode:screen;pointer-events:none;
   background:linear-gradient(to bottom,#ffc8ee3d 0,#ff7fd026 44%,#ff7fd00d 76%,transparent);
   -webkit-mask-image:linear-gradient(to right,transparent,#000 30%,#000 70%,transparent);
@@ -98,21 +102,18 @@ body.calm{--t:3}
   37%{transform:translateX(-48.6%) scaleX(1.12);opacity:1}
   68%{transform:translateX(-51%) scaleX(.96);opacity:.78}}
 
-/* Two counter-beating gradient ladders, not 22 sparkle elements. Translating
-   exactly one tile period is what makes the crawl seamless. The soft
-   transparent->colour->transparent ramp is deliberate: hard sub-pixel bars
-   moire against the device grid under a slowly changing scale. */
-.glit{position:absolute;inset:18% 8% 0;mix-blend-mode:screen;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent 0,#ffd6e4 1.1px,transparent 2.2px,transparent 3.4px);
+/* Keep the envelope stationary; only a repeated stripe field moves underneath.
+   The extra period above the box covers its whole loop without a seam. */
+.glit{position:absolute;inset:18% 8% 0;mix-blend-mode:screen;pointer-events:none;overflow:hidden;
   -webkit-mask-image:radial-gradient(ellipse at 50% 0,#000 12%,transparent 78%);
   mask-image:radial-gradient(ellipse at 50% 0,#000 12%,transparent 78%);
-  opacity:.22;animation:crawl calc(var(--t)*1.9s) linear infinite;will-change:transform}
-.glit.b{opacity:.14;transform:scaleX(.68);
-  animation:crawl2 calc(var(--t)*2.9s) linear infinite}
+  opacity:.22}
+.glit::before{content:"";position:absolute;inset:-3.4px 0 0;
+  background:repeating-linear-gradient(0deg,transparent 0,#ffd6e4 1.1px,transparent 2.2px,transparent 3.4px);
+  animation:crawl calc(var(--t)*1.9s) linear infinite;will-change:transform}
+.glit.b{opacity:.14;transform:scaleX(.68)}
+.glit.b::before{animation-duration:calc(var(--t)*2.9s)}
 @keyframes crawl{to{transform:translateY(3.4px)}}
-/* scaleX must appear in BOTH stops: a transform keyframe replaces the base
-   value outright, so declaring it only on the element loses it during the run. */
-@keyframes crawl2{from{transform:scaleX(.68)}to{transform:scaleX(.68) translateY(3.4px)}}
 
 /* ---- glints -------------------------------------------------------------- */
 /* Reflected light on chopped water shivers along the viewer-to-source axis,
@@ -130,10 +131,11 @@ body.calm{--t:3}
 .wet{position:absolute;inset:0;pointer-events:none;
   -webkit-mask-image:linear-gradient(to top,#000 70%,transparent);
   mask-image:linear-gradient(to top,#000 70%,transparent)}
-/* The river copy lives in .world, not .plane-near, so it escapes the parapet
-   mask that would otherwise erase it. It also drops .wet's fade, which exists
-   to die toward the promenade's parapet and means nothing on open water. */
-.wet.river{-webkit-mask-image:none;mask-image:none}
+/* River impacts escape the foreground's parapet mask but stay inside inspected
+   water. Normal blending preserves their dark outer rims. */
+.wet.river{-webkit-mask-image:var(--water-mask);mask-image:var(--water-mask);
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 /* Paired bright-inner / dark-outer edges help the rings remain legible over
    both dark and bright pavement. Rendered contrast has not been measured. */
 .sp{position:absolute;width:var(--w);height:var(--h);border-radius:50%;box-sizing:border-box;
@@ -141,6 +143,9 @@ body.calm{--t:3}
   box-shadow:inset 0 0 0 .7px var(--c), 0 0 0 .5px #140d2b73, 0 0 3px .5px #d9c4ff26;
   animation:sp calc(var(--t)*var(--p)) cubic-bezier(.1,.7,.3,1) infinite;
   animation-delay:calc(var(--t)*var(--d))}
+/* Keep the river stroke/shadow footprint proportional to its placement map. */
+.wet.river .sp{box-shadow:inset 0 0 0 .0455cqw var(--c),
+  0 0 0 .0325cqw #140d2b73,0 0 .195cqw .0325cqw #d9c4ff26}
 @keyframes sp{0%{transform:translate(-50%,-50%) scale(.06);opacity:0}
   8%{opacity:.55}
   100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
@@ -278,6 +283,7 @@ body.calm{--t:3}
 /* Small colored patches suggest windows coming on and later fading out.
    Normal alpha blending can change the underlying hue as well as brightness. */
 .win{position:absolute;width:.28%;height:.42%;opacity:0;background:#ffb765;
+  transform:translate(-50%,-50%);
   will-change:opacity;
   animation:win calc(var(--t)*var(--wt)) linear infinite;
   animation-delay:calc(var(--t)*var(--d))}
@@ -347,15 +353,15 @@ body.calm{--t:3}
   100%{transform:translateY(0);opacity:calc(var(--storm)*.55)}}
 
 /* ---- rain ---------------------------------------------------------------- */
-/* -25vh, not -22%: the bleed must scale with HEIGHT because the skew displaces
-   proportional to height. With a width-proportional bleed the corners go bare
-   on any tall display once the gust reaches -22deg. */
-.rain{position:absolute;inset:-80px -25vh;pointer-events:none;
+/* The world stays 3:2: 17cqw + 40px covers the maximum 25deg skew, including
+   the 80px vertical bleed. Tile size and travel scale with the painting. */
+.rain{position:absolute;inset:-80px calc(-17cqw - 40px);pointer-events:none;--tile:100cqw;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-size:100% 100%;mask-size:100% 100%;
   transform:skewX(-9deg);
   animation:gust calc(var(--t)*47s) linear infinite}
-.rain::before{content:"";position:absolute;inset:-1536px 0 0;background-size:1536px 1536px;
+.rain::before{content:"";position:absolute;inset:calc(-1 * var(--tile)) 0 0;
+  background-size:var(--tile) var(--tile);
   /* The fallback is load-bearing, not defensive style. A .rain variant that
      omits --speed makes this SHORTHAND invalid-at-computed-value-time, which
      silently resets every longhand it sets — animation-name included — and
@@ -368,16 +374,14 @@ body.calm{--t:3}
   44%{transform:skewX(-13deg)}72%{transform:skewX(-7deg)}100%{transform:skewX(-9deg)}}
 @keyframes gust-near{0%{transform:skewX(-12deg)}9%{transform:skewX(-23deg)}16%{transform:skewX(-25deg)}
   44%{transform:skewX(-16deg)}72%{transform:skewX(-10deg)}100%{transform:skewX(-12deg)}}
-@keyframes rainfall-lg{to{transform:translate3d(0,1536px,0)}}
-@keyframes rainfall-sm{to{transform:translate3d(0,768px,0)}}
+@keyframes rainfall-lg{to{transform:translate3d(0,var(--tile),0)}}
 
-.rain.far{opacity:.15;--speed:calc(var(--t)*5.8s);animation-delay:calc(var(--t)*-2.8s),0s;
+.rain.far{opacity:.15;--tile:50cqw;--speed:calc(var(--t)*5.8s);animation-delay:calc(var(--t)*-2.8s),0s;
   animation-name:gust,squall-a;animation-duration:calc(var(--t)*47s),calc(var(--t)*79s);
   animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite;
   -webkit-mask-image:linear-gradient(180deg,#000 0 46%,#0007 74%,transparent 96%);
   mask-image:linear-gradient(180deg,#000 0 46%,#0007 74%,transparent 96%)}
-.rain.far::before{inset:-768px 0 0;background-size:768px 768px;
-  background-image:url("${RAIN_FAR}");animation-name:rainfall-sm}
+.rain.far::before{background-image:url("${RAIN_FAR}")}
 .rain.mid{opacity:.31;--speed:calc(var(--t)*4.4s);animation-delay:calc(var(--t)*-1.4s),0s;
   animation-name:gust,squall-b;animation-duration:calc(var(--t)*47s),calc(var(--t)*97s);
   animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite;
@@ -387,11 +391,13 @@ body.calm{--t:3}
 /* Near rain is absent from the sky entirely: 1.5px near-plane drops falling
    across the painted sun read as dirt on the lens. Its defocus is baked into
    the tile, avoiding a separate CSS blur filter on the moving rain layer. */
+.near-rain-region{position:absolute;inset:0;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0 43%,#000 72%);
+  mask-image:linear-gradient(180deg,transparent 0 43%,#000 72%)}
 .rain.near{opacity:.30;--speed:calc(var(--t)*4.6s);
   animation-name:gust-near,squall-c;animation-duration:calc(var(--t)*47s),calc(var(--t)*113s);
   animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite;
-  -webkit-mask-image:linear-gradient(180deg,transparent 0 22%,#000 58%);
-  mask-image:linear-gradient(180deg,transparent 0 22%,#000 58%)}
+  -webkit-mask-image:none;mask-image:none}
 .rain.near::before{background-image:url("${RAIN_NEAR}")}
 /* Lamp-throw rain. A TALL ellipse — a lamp throw is a cone, not a puddle of
    light. Lives inside .world so its mask percentage is in painting space. */
@@ -407,7 +413,7 @@ body.calm{--t:3}
   animation-timing-function:linear,ease-in-out;animation-iteration-count:infinite,infinite;
   -webkit-mask-image:radial-gradient(ellipse 50% 60% at 50% 55%,#000 0 30%,transparent 78%);
   mask-image:radial-gradient(ellipse 50% 60% at 50% 55%,#000 0 30%,transparent 78%)}
-.rain.warm::before{inset:-1536px 0 0;background-image:url("${RAIN_WARM}")}
+.rain.warm::before{background-image:url("${RAIN_WARM}")}
 /* Three differently SHAPED envelopes, not one curve at three speeds. */
 @keyframes squall-a{0%,100%{opacity:.13}41%{opacity:.27}67%{opacity:.18}}
 @keyframes squall-b{0%,100%{opacity:.22}29%{opacity:.38}58%{opacity:.26}81%{opacity:.34}}
@@ -472,34 +478,20 @@ body.calm{--t:3}
   background:linear-gradient(to bottom,#0a082047 0,#0a08201f 2.6%,transparent 6.5%),
              linear-gradient(to top,#0a08201f 0,#0a082014 3.5%,transparent 9%)}
 
-/* ---- crop discipline ----------------------------------------------------- */
-/* Past 1.85:1 the world stops growing with the viewport and is pillarboxed
-   against a 64x43 plate of itself — the browser's upscale IS the blur, so no
-   filter pass is needed. Without this an ultrawide throws the entire sky, the
-   sun and the focal column off the top; with it the whole painting survives and
-   the animated area SHRINKS on the widest, most expensive displays. */
+/* The small blurred plate fills letterboxing as well as pillarboxing. */
 .pillar{position:absolute;inset:0;background:var(--city-blur) center/cover;
   filter:brightness(.42) saturate(.65);transform:scale(1.08)}
-/* .world is bottom-anchored, so every pixel of overflow is thrown off the TOP:
-   6.25% at 16:10, 15.6% at 16:9, 35.7% at 21:9. The painted sun ends up jammed
-   under the menu bar on a 4K external. Split the overflow instead. */
-@container (min-aspect-ratio:3/2) and (max-aspect-ratio:185/100){
-  .world{bottom:calc(-1 * min(.9cqh,(66.67cqw - 100cqh) * .3))}}
-@container (min-aspect-ratio:185/100){
-  /* At this width the world's height is exactly 100cqh, so the painting fills
-     the camera box vertically and the drift keeps its overscan. */
-  .world{width:150cqh;box-shadow:0 0 140px 60px #0a0820}}
 
 /* ---- states -------------------------------------------------------------- */
-.paused *,.paused *::before,.paused *::after{animation-play-state:paused!important}
+.paused *,.paused *::before,.paused *::after{animation-play-state:paused!important;will-change:auto!important}
 
 /* Keep a static composition with distant rain. The atmospheric layers retain
    their declared storm-scaled baselines; the other values are chosen stills. */
 @media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation:none!important}
+  *,*::before,*::after{animation:none!important;will-change:auto!important}
   .rain.mid,.rain.near,.rain.warm{display:none}
   .rain.far{opacity:.17}
-  .rain.far::before{transform:translate3d(0,384px,0)}
+  .rain.far::before{transform:translate3d(0,25cqw,0)}
   .sp,.ballast,.win,.traffic,.bolt{display:none}
   .spray{opacity:.32}.spray.b{opacity:.26}
   .steam{opacity:.24}
@@ -527,15 +519,15 @@ DOC = Template('''<!doctype html>
 -->
 <style>$CSS</style></head>
 <body>
-<main class="scene" aria-label="A cyberpunk city at dusk in the rain: traffic crosses the bridges, rain lands across the wet promenade and the river, the sun's reflection shifts on the water, and boats move downstream">
+<main class="scene" aria-label="A cyberpunk city at dusk in the rain: traffic crosses the bridges, rain lands across the wet promenade and the river, the sun's reflection shifts on the water, and boats drift on the near river">
 <div class="pillar"></div>
 <div class="camera"><div class="world">
 <div class="city"></div>
 <div class="bloom-wrap"><div class="bloom"></div></div>
 <div class="plane-near"><div class="wet">$IMPACT</div>$SMEARS</div>
 <div class="wet river">$RIVER</div>
-$GLINTS
-<div class="sunpath"><div class="glit"></div><div class="glit b"></div></div>
+<div class="water-light">$GLINTS
+<div class="sunpath"><div class="glit"></div><div class="glit b"></div></div></div>
 $BOATS
 <div class="cascade" style="left:70.3%;top:52.2%;width:2.7%;height:12%"></div>
 <div class="cascade second" style="left:73.2%;top:52%;width:3.3%;height:14%"></div>
@@ -552,18 +544,24 @@ $EMITTERS
 <div class="haze h"></div><div class="haze m"></div><div class="haze f"></div>
 </div>
 <div class="rain warm"></div>
-</div></div>
 <div class="storm-rain-wrap">
-<div class="rain far"></div><div class="rain mid"></div><div class="rain near"></div>
+<div class="rain far"></div><div class="rain mid"></div>
+<div class="near-rain-region"><div class="rain near"></div></div>
 </div>
+</div></div>
 <div class="frame"></div><div class="chrome"></div>
 </main>
 <div class="grade"></div>
 <script>
 function syncVisibility(){document.body.classList.toggle('paused',document.hidden)}
 document.addEventListener('visibilitychange',syncVisibility);syncVisibility();
-function syncCalm(){document.body.classList.toggle('calm',location.hash==='#calm')}
+function syncCalm(){
+  const calm=location.hash==='#calm';
+  document.body.classList.toggle('calm',calm);
+  for(const animation of document.getAnimations()) animation.updatePlaybackRate(calm?1/3:1);
+}
 window.addEventListener('hashchange',syncCalm);syncCalm();
+window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',syncCalm);
 </script>
 </body></html>
 ''')

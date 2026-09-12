@@ -10,7 +10,7 @@ bright pavement while retaining the sky, so small traffic lights, boats and rain
 impacts support that subject. The city and boat images are embedded WebPs, and
 seeded SVG rain tiles keep the page self-contained and offline.
 
-`.camera` provides a static overscale; `.world` drifts; a masked near-plane copy
+`.camera` defines the viewport; `.world` fits with small overscan and drifts; a masked near-plane copy
 of the painting scales slowly to suggest depth. Boats bob independently, and
 flipped reflections extend below their waterlines. The reflection transform
 translates the sprite before applying the negative vertical scale; without that
@@ -57,13 +57,15 @@ removes values supplied only by keyframes. Light and haze keep their declared
 storm-scaled baseline; they must not become brighter than their normal range
 merely because animation is disabled.
 
-`index.html#calm` sets `--t:3`, slowing all animation by a factor of three. Adding
-or removing that fragment updates an open page immediately. It changes speed,
+`index.html#calm` sets native animation playback rates to one third. Adding or
+removing that fragment updates the speed without changing the current animation
+position. The rate is reapplied when Reduce Motion changes recreate animations.
+It changes speed,
 not a measured frame-rate or energy limit. Use Plash's deactivate-on-battery
 setting when you want the animation to stop on battery.
 
 The page pauses CSS animations, including pseudo-elements, when the browser
-reports it hidden. Another window covering the wallpaper does not necessarily
+reports it hidden. Hidden and Reduce Motion states also clear `will-change` hints. Another window covering the wallpaper does not necessarily
 produce that signal. Plash behavior and system settings determine the remaining
 lifecycle.
 
@@ -74,11 +76,19 @@ additional surfaces. Its feathered mask blends along the parapet. The mask's
 31.1-degree direction and 31.35% center follow from the two painted endpoints at
 world coordinates (24%, 62%) and (66%, 100%) in a 3:2 world.
 
-The world uses a small capped vertical crop adjustment. A container aspect-ratio
-query changes it to a narrower pillarboxed composition on wide screens. Because
-it measures the expanded camera container, the nominal 1.85 container threshold
-occurs at a viewport ratio of approximately 1.829. Crossing it changes image
-scale abruptly. This is an intentional breakpoint, not a continuous cap.
+The world stays 3:2 and uses `width:min(102cqw,153cqh)` against the viewport.
+This gives a continuous fit with 2% overscan and a blurred surround. Both boat
+paths, waterfalls and painted puddle centers remain visible at the six checked
+aspect ratios. The painting clips overlay overflow.
+
+Weather now shares those painting coordinates. Rain tile size, travel and
+overscan scale together; the near-rain mask stays still and transparent over
+the sky. Shimmer moves a repeated stripe field beneath a stationary mask.
+
+Thirty glints and fourteen river impacts use four conservative source-image
+water regions with soft edges. This is a hand-tuned placement map, not general
+water detection; changing the painting requires updating it. Eight facade
+window anchors, two warm lamps and the cyan emitter follow inspected sources.
 
 Bloom is rendered from a quarter-sized element and scaled up. That describes the
 geometry, not a guaranteed GPU saving: filter surfaces, cache behavior, device
@@ -95,7 +105,12 @@ uses a mocked document when Node.js is available.
 
 `tests/build-selfcheck.py` checks reflection geometry, static atmosphere,
 repeatable assembly, missing-asset and publication failures, and preservation of
-previous outputs after a rejected grade. The last check requires Pillow and
+previous outputs after a rejected grade, stationary shimmer, water-mask blending
+and inactive animation hints. `water-selfcheck.py` checks emitted placement
+bounds across 65 seeds; `framing-selfcheck.py` checks six aspect ratios, complete
+boat paths, near-rain sky exclusion and seamless proportional rain tiles.
+The grading check requires Pillow and
 NumPy; the others use only the standard library. Lua checks cover the optional
 controls separately. See the [audit record](AUDIT-2026-09-12.md) for what was
-actually verified and which live checks remain.
+actually verified and which live checks remain. The subsequent
+[wallpaper critique](WALLPAPER-CRITIQUE.md) records the focused visual-source pass.

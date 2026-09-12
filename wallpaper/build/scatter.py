@@ -1,10 +1,9 @@
 """Generates the placed elements: impact field, glints, smears, traffic, windows,
 lamps, ballast and emitters.
 
-Every coordinate here is a percentage of the PAINTING (the .world box), not of
-the viewport, so placements survive every display aspect ratio. Coordinates were
-read off the source image; the ones that matter carry a comment saying what is
-painted there.
+Emitted coordinates are percentages of the PAINTING (the .world box), not the
+viewport. Inspected water regions and light anchors retain their source-pixel
+coordinates below and convert to percentages when emitted.
 
 Different periods and phases vary the local accents. Some periods share factors
 or are reused; this generator does not establish a scene-wide repeat interval.
@@ -17,9 +16,34 @@ rng = random.Random(20260911)   # build.main resets this seed for each assembly
 GLINT_PERIODS = [2.3, 2.9, 3.1, 3.7, 4.1, 4.3, 4.7, 5.3, 5.9]
 SMEAR_PERIODS = [8.3, 9.7, 11.3, 12.9, 14.7, 16.1]
 
+# Clear-water cores inspected in the 1536x1024 source painting. These deliberately
+# exclude bridge decks, tower silhouettes and the foreground parapet.
+WATER_REGIONS = ((815, 505, 830, 536), (821, 576, 838, 617),
+                 (895, 710, 958, 750), (1315, 890, 1470, 955))
+
 
 def esc(v):
     return f'{v:.4g}'
+
+
+def water_mask():
+    """Soft water-only light mask in source-image coordinates; encode at assembly."""
+    rectangles = ''.join(
+        f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" '
+        'fill="url(#water-x)" mask="url(#fade-y)"/>'
+        for x0, y0, x1, y1 in WATER_REGIONS)
+    stops = ('<stop offset="0%" stop-color="#fff" stop-opacity="0"/>'
+             '<stop offset="5%" stop-color="#fff"/>'
+             '<stop offset="95%" stop-color="#fff"/>'
+             '<stop offset="100%" stop-color="#fff" stop-opacity="0"/>')
+    return ('<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" '
+            'viewBox="0 0 1536 1024"><defs>'
+            '<linearGradient id="water-x" x1="0%" y1="0%" x2="100%" y2="0%">' + stops +
+            '</linearGradient><linearGradient id="water-y" x1="0%" y1="0%" x2="0%" y2="100%">' + stops +
+            '</linearGradient><mask id="fade-y" maskUnits="objectBoundingBox" '
+            'maskContentUnits="objectBoundingBox" x="0" y="0" width="1" height="1">'
+            '<rect width="1" height="1" fill="url(#water-y)"/>'
+            '</mask></defs>' + rectangles + '</svg>')
 
 
 # --- impact field -------------------------------------------------------------
@@ -78,33 +102,35 @@ def impact_field():
 
 
 def river_impacts():
-    """14 impacts on the near river.
-
-    Deliberately a separate function emitted into .world, NOT into .plane-near:
-    they sit downstream of the bank line, i.e. on the river side of the parapet,
-    which is precisely the half-plane .plane-near's mask erases.
-    """
+    """14 complete rings on clear water, outside the promenade's moving mask."""
     river = []
-    for _ in range(200):
-        if len(river) >= 14:
-            break
-        # Near river, downstream of the bank line (60,75) -> (100,100).
-        x = rng.uniform(58.0, 99.0)
-        y = rng.uniform(76.0, 99.0)
-        if y < 75 + 25 * (x - 60) / 40 - 2:
-            continue
-        river.append((x, y, None))
+    for (x0, y0, x1, y1), count in zip(WATER_REGIONS[2:], (6, 8)):
+        # The mask is fully opaque only beyond each region's 5% edge fade.
+        sx, sy = (x1 - x0) * .05, (y1 - y0) * .05
+        x0, y0, x1, y1 = x0 + sx, y0 + sy, x1 - sx, y1 - sy
+        # The deepest point gives the largest ring; reserve its full radius,
+        # another 4 source pixels for nominal blur/spread and rounding. The mask
+        # can still trim very faint Gaussian tails beyond that nominal footprint.
+        w, h, _ = _impact_dimensions(y1 / 10.24)
+        dx, dy = w * 15.36 / 2 + 4, h * 10.24 / 2 + 4
+        for _ in range(count):
+            x = rng.uniform(x0 + dx, x1 - dx) / 15.36
+            y = rng.uniform(y0 + dy, y1 - dy) / 10.24
+            river.append((x, y, None))
     return _emit(river)
+
+
+def _impact_dimensions(y):
+    d = max(0.0, min(1.0, (y - 60.0) / 40.0))  # depth: 0 far, 1 near
+    w = 0.45 + d * 2.6
+    return w, w * (0.20 + d * 0.22), 0.5 + d * 0.55
 
 
 def _emit(sites):
     out = []
     for x, y, forced in sites:
-        d = max(0.0, min(1.0, (y - 60.0) / 40.0))       # depth: 0 far, 1 near
-        w = 0.45 + d * 2.6
-        h = w * (0.20 + d * 0.22)
-        p = 0.5 + d * 0.55                               # 0.5-1.05s: a raindrop,
-        delay = rng.uniform(0, 7.0)                      # not a pebble in a pond
+        w, h, p = _impact_dimensions(y)
+        delay = rng.uniform(0, 7.0)
         colour = forced or (SODIUM if in_sodium_column(x, y) else MAGENTA)
         out.append(
             f'<i class="sp" style="left:{esc(x)}%;top:{esc(y)}%;--w:{esc(w)}%;'
@@ -114,51 +140,29 @@ def _emit(sites):
 
 
 # --- glints -------------------------------------------------------------------
-# Reflected light on chopped water shivers along the viewer-to-source axis, which
-# here is vertical. The shipped glints are horizontal 0.65px hairlines sharing one
-# 6s period, clustered in a dark blue-biased patch where the painting has no
-# bright source at all.
-
-
-def lerp_hex(a, b, t):
-    av = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
-    bv = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
-    return '#' + ''.join(f'{round(av[i] + (bv[i] - av[i]) * t):02x}' for i in range(3))
+# Small, warm glints follow the distant solar reflection; larger magenta/cool
+# glints occupy clear middle and near water. Every full animated box stays wet.
 
 
 def glints():
     out = []
-
-    def add(x, y, w, gh, colour):
-        out.append(
-            f'<i class="glint" style="left:{esc(x)}%;top:{esc(y)}%;width:{esc(w)}%;'
-            f'--gh:{esc(gh)}%;--c:{colour};--gt:{rng.choice(GLINT_PERIODS)}s;'
-            f'--delay:-{esc(rng.uniform(0, 12))}s"></i>'
-        )
-
-    # Far channel: the river as it recedes toward the sun. Small and tight.
-    for _ in range(14):
-        add(rng.uniform(47, 58), rng.uniform(42, 58),
-            rng.uniform(0.08, 0.18), 0.12, rng.choice(['#f9becb', '#8ed4ed', '#f396dd']))
-
-    # Mid river.
-    for _ in range(18):
-        add(rng.uniform(56, 72), rng.uniform(60, 76),
-            rng.uniform(0.14, 0.40), 0.28, rng.choice(['#f396dd', '#8ed4ed', '#f9becb']))
-
-    # Near river, bottom right: bigger and taller for perspective.
-    for _ in range(12):
-        add(rng.uniform(74, 96), rng.uniform(78, 96),
-            rng.uniform(0.30, 0.70), 0.40, rng.choice(['#f396dd', '#f9becb', '#8ed4ed']))
-
-    # The relocated twelve, plus ten warm ones, down the sun's specular column.
-    # Warm at the top where the sun is, cooling as the column runs toward the
-    # viewer; sizes grow downward.
-    for i in range(22):
-        t = i / 21.0
-        y = 40.0 + t * 26.0
-        x = 50.0 + rng.uniform(0, 6.0)
-        add(x, y, 0.10 + t * 0.34, 0.14 + t * 0.22, lerp_hex('#ffe6cf', '#ffb27f', t))
+    layout = ((6, .08, .14, .12), (6, .10, .18, .16),
+              (8, .16, .32, .28), (10, .30, .55, .40))
+    for index, ((x0, y0, x1, y1), (count, low, high, gh)) in enumerate(zip(WATER_REGIONS, layout)):
+        sx, sy = (x1 - x0) * .05, (y1 - y0) * .05
+        x0, y0, x1, y1 = x0 + sx, y0 + sy, x1 - sx, y1 - sy
+        colours = ('#ffe6cf', '#ffb27f', '#f9becb') if index < 2 else ('#f396dd', '#8ed4ed', '#f9becb')
+        for _ in range(count):
+            w = rng.uniform(low, high)
+            # scaleY(1.5) grows .25 heights above top and 1.25 below top.
+            # A .2px inset also covers four-significant-digit serialization.
+            x = rng.uniform(x0 + .2, x1 - w * 15.36 - .2) / 15.36
+            y = rng.uniform(y0 + .25 * gh * 10.24 + .2,
+                            y1 - 1.25 * gh * 10.24 - .2) / 10.24
+            out.append(
+                f'<i class="glint" style="left:{esc(x)}%;top:{esc(y)}%;width:{esc(w)}%;'
+                f'--gh:{esc(gh)}%;--c:{rng.choice(colours)};--gt:{rng.choice(GLINT_PERIODS)}s;'
+                f'--delay:-{esc(rng.uniform(0, 12))}s"></i>')
     return out
 
 
@@ -252,38 +256,37 @@ def traffic():
 # --- windows ------------------------------------------------------------------
 # Small patches suggest windows coming on, then fading away. Normal alpha
 # blending is not additive and can change the painted color under each patch.
-WIN_PERIODS = [187, 211, 239, 263, 293, 317, 347, 379, 401, 433, 467, 499, 541, 577]
+WIN_PERIODS = [187, 211, 239, 263, 293, 317, 347, 379]
+# Painted window centers in source pixels: two central facades, one right tower,
+# and the left distant tower. CSS centers each small patch on its light.
+WINDOW_ANCHORS = ((728, 726), (728, 746), (796, 692), (796, 700),
+                  (793, 706), (1300, 591), (648, 483), (651, 496))
 
 
 def windows():
     out = []
-    spots = []
-    for _ in range(8):                                   # right-bank tower band
-        spots.append((rng.uniform(86, 93), rng.uniform(55, 66)))
-    for _ in range(6):                                   # mid-river blocks
-        spots.append((rng.uniform(44, 49), rng.uniform(72, 79)))
-    for i, (x, y) in enumerate(spots):
-        warm = i % 7 < 4
-        cls = 'win' if warm else 'win cool'
+    for i, (px, py) in enumerate(WINDOW_ANCHORS):
+        x, y = px / 15.36, py / 10.24
+        cls = 'win' if i < 5 else 'win cool'
         out.append(f'<i class="{cls}" style="left:{esc(x)}%;top:{esc(y)}%;'
                    f'--wt:{WIN_PERIODS[i]}s;--d:-{esc(rng.uniform(0, WIN_PERIODS[i]))}s"></i>')
     return out
 
 
 # --- balustrade lamps ---------------------------------------------------------
-# Verified at 5x: warm point sources along the railing land at y~49.4%, with
-# reflected smears in the wet terrace below.
-LAMP_PERIODS = [6.3, 7.1, 8.4, 9.7, 11.2, 13.1]
+# Two inspected warm railing lights, each with its actual source-pixel height.
+LAMP_PERIODS = [6.3, 7.1]
+LAMP_ANCHORS = ((232, 501), (331, 505))
 
 
 def lamps():
     out = []
-    for i in range(6):
-        x = 16.4 + i * 1.85
-        size = 0.35 + (i % 3) * 0.05
+    for i, (px, py) in enumerate(LAMP_ANCHORS):
+        x, y = px / 15.36, py / 10.24
+        size = 0.35 + i * 0.05
         out.append(
-            f'<i class="lamp" style="left:{esc(x)}%;top:49.4%;width:{esc(size)}%;'
+            f'<i class="lamp" style="left:{esc(x)}%;top:{esc(y)}%;width:{esc(size)}%;'
             f'--lt:{LAMP_PERIODS[i]}s;--d:-{esc(i * 2.3 + 0.7)}s"></i>'
-            f'<i class="lamp-streak" style="left:{esc(x)}%;top:50.1%;'
+            f'<i class="lamp-streak" style="left:{esc(x)}%;top:{esc(y + .7)}%;'
             f'--lt:{LAMP_PERIODS[i]}s;--d:-{esc(i * 2.3 + 0.7)}s"></i>')
     return out

@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -34,7 +35,7 @@ EMITTERS = [
     dict(x=52.4, y=28.0, w=15, h=10, c='#ffc9a8', t=31.7, lo=.28, hi=.42, d=-11),   # sun
     dict(x=32.9, y=30.0, w=7, h=36, c='#ff2ea8', t=17.4, lo=.20, hi=.34, d=-29),    # neon column
     dict(x=32.2, y=70.5, w=4, h=3, c='#ffa04e', t=11.9, lo=.18, hi=.32, d=-7),      # promenade lamp
-    dict(x=88.9, y=60.0, w=8, h=12, c='#3fc9ff', t=23.1, lo=.18, hi=.30, d=-19),    # right towers
+    dict(x=75.74, y=38.02, w=3.2, h=18, c='#3fc9ff', t=23.1, lo=.18, hi=.30, d=-19), # cyan facade strip
 ]
 
 # Different periods and phases reduce regular coincidence between signs.
@@ -103,6 +104,7 @@ def main():
         CITY=data_uri(OUT / 'city.webp'),
         BOAT=data_uri(OUT / 'boat.webp'),
         CITYBLUR=data_uri(OUT / 'city-blur.webp'),
+        WATERMASK='data:image/svg+xml,' + quote(scatter.water_mask(), safe=''),
         FALLTILE=(HERE / 'falltile.txt').read_text().strip(),
         RAIN_FAR=tiles['far'], RAIN_MID=tiles['mid'],
         RAIN_NEAR=tiles['near'], RAIN_WARM=tiles['warm'],

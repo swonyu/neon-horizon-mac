@@ -37,3 +37,13 @@ reflection placement, calm-fragment updates and Reduce Motion brightness are fix
 Documentation now separates measured image gates and simulated behavior from
 unverified rendering, power and live Mac installation. The [implementation plan](plans/2026-09-12-audit-fixes.md)
 tracks completion and the audit records final checks.
+
+## 12 September 2026 — wallpaper composition repairs
+
+The [13-finding wallpaper critique](WALLPAPER-CRITIQUE.md) addresses abrupt
+cropping, effects on the wrong painted surfaces, a moving shimmer mask, rain
+scale and sky exclusion, calm-mode phase changes, and retained preparation
+hints. The scene keeps its original artwork, boat movement and palette. It
+uses continuous fitting, conservative water masks, individually placed lights
+and native playback-rate changes. Source, geometry and generated-script checks
+cover the changes; fresh Chrome rendering remains blocked by browser policy.
