@@ -73,6 +73,23 @@ class DockChecks(unittest.TestCase):
     def paths(self, tiles):
         return [dock.app_path(t) for t in tiles if t.get('tile-type') != 'small-spacer-tile']
 
+    def groups(self, tiles):
+        groups = [[]]
+        for tile in tiles:
+            if tile.get('tile-type') in dock.SPACERS:
+                self.assertTrue(groups[-1], 'Empty Dock group')
+                groups.append([])
+            else:
+                groups[-1].append(tile)
+        self.assertTrue(groups[-1], 'Trailing gap')
+        return groups
+
+    def group_paths(self, tiles):
+        return [self.paths(group) for group in self.groups(tiles)]
+
+    def spacer(self, guid, kind='small-spacer-tile'):
+        return {'GUID': guid, 'tile-type': kind, 'tile-data': {'preserve': b'gap metadata'}}
+
     def test_ranks_measured_pins_keeps_fallback_and_original_objects(self):
         offline = self.tile(self.root / 'Offline.app', 9)
         opaque = {'tile-type': 'unknown-tile', 'tile-data': {'file-label': 'Keep me'}}
@@ -83,7 +100,7 @@ class DockChecks(unittest.TestCase):
         result = dock.plan()
         self.assertEqual(self.paths(result['applied'])[:3], [self.screen, self.b, self.a])
         self.assertEqual(result['applied'][4:], [offline, opaque, before[4]])
-        self.assertEqual(result['applied'][2], before[2])
+        self.assertEqual(result['applied'][1], before[2])
         self.assertEqual(result['before'], before)
         self.assertEqual(self.domain['persistent-apps'], before)
 
@@ -128,7 +145,7 @@ class DockChecks(unittest.TestCase):
         first = dock.plan()
         self.assertEqual(first['applied'][0], screen)
         self.assertEqual(self.paths(first['applied']), [self.screen, self.a])
-        self.assertEqual(sum(t['tile-type'] == 'small-spacer-tile' for t in first['applied']), 1)
+        self.assertEqual(sum(t['tile-type'] == 'small-spacer-tile' for t in first['applied']), 0)
         self.domain['persistent-apps'] = first['applied']
         self.assertEqual(dock.plan()['applied'], first['applied'])
 
@@ -272,6 +289,100 @@ class DockChecks(unittest.TestCase):
                 dock.main()
         self.assertEqual(caught.exception.code, 2)
         self.assertEqual(self.calls, [])
+
+    def test_existing_group_boundaries_and_separator_objects_survive_ranking(self):
+        d = self.app('Delta')
+        separator = self.spacer(900)
+        self.domain['persistent-apps'] = [self.tile(self.a), self.tile(self.b), separator,
+                                          self.tile(self.c), self.tile(d)]
+        for app, count in ((self.a, 1), (self.b, 10), (self.c, 2), (d, 100)):
+            self.metadata[app] = {'kMDItemUseCount': count}
+        first = dock.plan()['applied']
+        self.assertEqual(self.group_paths(first), [[self.screen, self.b, self.a], [d, self.c]])
+        self.assertEqual(first[3], separator)
+        self.domain['persistent-apps'] = first
+        self.assertEqual(dock.plan()['applied'], first)
+        self.metadata[self.c] = {'kMDItemUseCount': 1000}
+        second = dock.plan()['applied']
+        self.assertEqual(self.group_paths(second), [[self.screen, self.b, self.a], [self.c, d]])
+        self.assertEqual(second[3], separator)
+
+    def test_missing_counts_and_unavailable_tiles_stay_with_their_groups(self):
+        offline = self.tile(self.root / 'Offline.app', 42)
+        opaque = {'tile-type': 'unknown-tile', 'tile-data': {'file-label': 'Keep me'}}
+        self.domain['persistent-apps'] = [self.tile(self.a), offline, self.spacer(901),
+                                          opaque, self.tile(self.b), self.tile(self.c)]
+        self.metadata[self.b] = {'kMDItemUseCount': 10}
+        self.metadata[self.c] = {'kMDItemLastUsedDate': datetime(2026, 1, 1)}
+        groups = self.groups(dock.plan()['applied'])
+        self.assertEqual(groups[0][1:], [self.tile(self.a), offline])
+        self.assertEqual(groups[1], [self.tile(self.b), opaque, self.tile(self.c)])
+
+    def test_screen_only_group_folds_and_empty_gap_runs_disappear(self):
+        screen = self.tile(self.screen, 55)
+        keep = self.spacer(904)
+        self.domain['persistent-apps'] = [self.spacer(900), screen, self.spacer(901), self.spacer(902),
+                                          self.tile(self.a), self.spacer(903), self.tile(self.a),
+                                          keep, self.tile(self.b), self.tile(self.c), self.spacer(905)]
+        result = dock.plan()['applied']
+        self.assertEqual(self.group_paths(result), [[self.screen, self.a], [self.b, self.c]])
+        self.assertEqual(result[0], screen)
+        self.assertEqual(result[2], keep)
+        self.domain['persistent-apps'] = result
+        self.assertEqual(dock.plan()['applied'], result)
+
+    def test_screen_moves_from_later_group_without_moving_its_neighbors(self):
+        separator = self.spacer(909)
+        self.domain['persistent-apps'] = [self.tile(self.a), separator, self.tile(self.screen),
+                                          self.tile(self.b), self.tile(self.c)]
+        result = dock.plan()['applied']
+        self.assertEqual(self.group_paths(result), [[self.screen, self.a], [self.b, self.c]])
+        self.assertEqual(result[2], separator)
+
+    def test_ungrouped_layout_gets_balanced_small_groups_without_repeat_drift(self):
+        apps = [self.app('Balanced ' + str(i)) for i in range(16)]
+        for count in (0, 3, 4, 8, 14, 16):
+            with self.subTest(existing_pins=count):
+                self.domain['persistent-apps'] = [self.tile(app, i + 100) for i, app in enumerate(apps[:count])]
+                first = dock.plan()['applied']
+                groups = self.groups(first)
+                self.assertEqual(len(groups), min(4, (count + 1 + 3) // 4))
+                sizes = [len(group) for group in groups]
+                self.assertLessEqual(max(sizes) - min(sizes), 1)
+                self.assertEqual(first[0]['tile-data']['file-label'], 'Screen Sharing')
+                if count:
+                    self.assertNotIn(first[1]['tile-type'], dock.SPACERS)
+                self.domain['persistent-apps'] = first
+                self.assertEqual(dock.plan()['applied'], first)
+
+    def test_prior_screen_only_separator_is_reused_for_balanced_groups(self):
+        apps = [self.app('Former ' + str(i)) for i in range(8)]
+        separator = self.spacer(910)
+        self.domain['persistent-apps'] = [self.tile(self.screen), separator, *[self.tile(app) for app in apps]]
+        first = dock.plan()['applied']
+        self.assertEqual([len(group) for group in self.groups(first)], [3, 3, 3])
+        self.assertEqual(first[3], separator)
+        self.domain['persistent-apps'] = first
+        self.assertEqual(dock.plan()['applied'], first)
+
+    def test_legacy_gap_converts_to_small_with_same_identity(self):
+        separator = self.spacer(911, 'spacer-tile')
+        self.domain['persistent-apps'] = [self.tile(self.a), separator, self.tile(self.b)]
+        first = dock.plan()['applied']
+        self.assertEqual(self.group_paths(first), [[self.screen, self.a], [self.b]])
+        self.assertEqual(first[2], dict(separator, **{'tile-type': 'small-spacer-tile'}))
+        self.domain['persistent-apps'] = first
+        self.assertEqual(dock.plan()['applied'], first)
+
+    def test_discovered_apps_form_new_group_without_reassigning_existing_pins(self):
+        separator = self.spacer(912)
+        self.domain['persistent-apps'] = [self.tile(self.a), separator, self.tile(self.b)]
+        self.metadata[self.c] = {'kMDItemUseCount': 100}
+        first = dock.plan(discover=True, directories=(self.apps,))['applied']
+        self.assertEqual(self.group_paths(first), [[self.screen, self.a], [self.b], [self.c]])
+        self.assertEqual(first[2], separator)
+        self.domain['persistent-apps'] = first
+        self.assertEqual(dock.plan(discover=True, directories=(self.apps,))['applied'], first)
 
 
 if __name__ == '__main__':

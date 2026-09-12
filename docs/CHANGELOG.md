@@ -66,3 +66,9 @@ the change; a post-reload recording is still needed to judge its appearance.
 - The latest wallpaper HTML was copied into the source Mac's existing installed artwork location with a backup. This verifies the installed file, not a fresh Plash render; the earlier browser policy block remains respected.
 
 Checks: 18 Dock cases, 18 edge scenarios, nine shortcut bindings and existing full source/package checks. Another Mac still needs its own visible verification and permissions. The setup tool does not install Hammerspoon or copy any personal app list.
+
+## 12 September 2026 — restore grouped Dock spacing
+
+The default Dock policy now preserves each person's spacer-defined app groups and sorts usage only inside those groups. Screen Sharing leads the first group without an isolated gap. Empty gaps are consolidated, and unavailable pins keep their group membership. For an ungrouped Dock, setup creates balanced visual groups of roughly four apps, capped at four groups, then respects those boundaries on later runs. Optional discovered apps form a separate final group.
+
+This replaces the earlier single-gap, globally ranked layout. Native Dock backups and conservative undo remain unchanged. No app categories, personal app lineup or continuous app tracker are bundled.

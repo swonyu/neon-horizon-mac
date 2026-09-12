@@ -115,31 +115,60 @@ def rank(item):
     return (-(count or 0), -date.replace(tzinfo=timezone.utc).timestamp() if date else float('inf'))
 
 
+def rank_group(items):
+    return (sorted((item for item in items if item['usage'][0] is not None), key=rank)
+            + [item for item in items if item['usage'][0] is None])
+
+
 def plan(discover=False, directories=None):
     before = read_apps()
     screen = next((app for path in SCREEN_SHARING_PATHS if (app := valid_app(path))), None)
     if screen is None:
         raise ValueError('Native Screen Sharing.app was not found; Dock left unchanged')
-    measured, fallback, seen = [], [], set()
-    screen_tile, separator = None, None
-    removed = 0
+    # A spacer run is one boundary. Keep its small tile intact when possible.
+    parsed = [{'items': [], 'separator': None}]
+    spacers, pending = [], []
     for tile in before:
         if tile.get('tile-type') in SPACERS:
-            if separator is None and tile.get('tile-type') == 'small-spacer-tile':
-                separator = tile
-            removed += 1
+            spacers.append(tile)
+            pending.append(tile)
             continue
-        path = app_path(tile)
-        if path is not None:
-            if path in seen:
-                removed += 1
+        if pending and parsed[-1]['items']:
+            separator = next((gap for gap in pending if gap.get('tile-type') == 'small-spacer-tile'), pending[0])
+            parsed.append({'items': [], 'separator': separator})
+        pending = []
+        parsed[-1]['items'].append(tile)
+    groups, seen = [], set()
+    screen_tile, duplicates = None, 0
+    for group in parsed:
+        items = []
+        for tile in group['items']:
+            path = app_path(tile)
+            if path is not None:
+                if path in seen:
+                    duplicates += 1
+                    continue
+                seen.add(path)
+            if path == screen:
+                screen_tile = tile
                 continue
-            seen.add(path)
-        if path == screen:
-            screen_tile = tile
-            continue
-        item = {'tile': tile, 'path': path, 'usage': usage(path) if path else (None, None)}
-        (fallback if item['usage'][0] is None else measured).append(item)
+            items.append({'tile': tile, 'path': path, 'usage': usage(path) if path else (None, None)})
+        if items:
+            groups.append({'items': rank_group(items), 'separator': group['separator']})
+    fixed = {'tile': screen_tile if screen_tile is not None else new_tile(screen),
+             'path': screen, 'usage': (None, None)}
+    if len(groups) <= 1:
+        # No meaningful boundary remains, including the former Screen-only gap.
+        ordered = [fixed] + (groups[0]['items'] if groups else [])
+        count = min(4, (len(ordered) + 3) // 4)
+        size, larger = divmod(len(ordered), count)
+        groups, offset = [], 0
+        for index in range(count):
+            end = offset + size + (index < larger)
+            groups.append({'items': ordered[offset:end], 'separator': None})
+            offset = end
+    else:
+        groups[0]['items'].insert(0, fixed)
     additions = []
     if discover:
         directories = directories if directories is not None else (Path('/Applications'), Path.home() / 'Applications')
@@ -157,20 +186,37 @@ def plan(discover=False, directories=None):
                     candidates.append({'path': path, 'usage': info})
         for candidate in sorted(candidates, key=rank)[:3]:
             additions.append(dict(candidate, tile=new_tile(candidate['path'])))
-    ordered = sorted(measured + additions, key=rank) + fallback
-    applied = [screen_tile if screen_tile is not None else new_tile(screen)]
-    if ordered:
-        applied.append(separator if separator is not None else {
-            'GUID': uuid.uuid4().int & 0x7fffffff, 'tile-type': 'small-spacer-tile'})
-    applied.extend(item['tile'] for item in ordered)
-    return {'before': before, 'applied': applied, 'ranking': ordered,
-            'added': len(additions), 'removed': removed}
+    if additions:
+        if len(groups) == 1 and groups[0]['items'] == [fixed]:
+            groups[0]['items'].extend(additions)  # Do not isolate Screen Sharing on an empty Dock.
+        else:
+            groups.append({'items': additions, 'separator': None})
+    applied, ranking, used = [], [], set()
+    spare_gaps = ([gap for gap in spacers if gap.get('tile-type') == 'small-spacer-tile']
+                  + [gap for gap in spacers if gap.get('tile-type') != 'small-spacer-tile'])
+    for number, group in enumerate(groups, 1):
+        if number > 1:
+            gap = group['separator']
+            if gap is None:
+                gap = next((candidate for candidate in spare_gaps if id(candidate) not in used), None)
+            if gap is None:
+                gap = {'GUID': uuid.uuid4().int & 0x7fffffff, 'tile-type': 'small-spacer-tile'}
+            else:
+                used.add(id(gap))
+                if gap.get('tile-type') != 'small-spacer-tile':
+                    gap = dict(gap, **{'tile-type': 'small-spacer-tile'})
+            applied.append(gap)
+        applied.extend(item['tile'] for item in group['items'])
+        ranking.extend(dict(item, group=number) for item in group['items'] if item is not fixed)
+    return {'before': before, 'applied': applied, 'ranking': ranking, 'groups': len(groups),
+            'added': len(additions), 'removed': duplicates + len(spacers) - len(used)}
 
 
 def show_plan(result):
-    print('Finder stays implicit; Screen Sharing is the first pinned app, followed by one separator.')
-    print('Ranking: Spotlight use count, then last-used date; not Screen Time duration.')
-    print('Missing use count or unavailable app: preserve original order after measured pins.')
+    print('Finder stays implicit; Screen Sharing leads the first group without its own gap.')
+    print('Keep existing groups; an ungrouped Dock gets balanced groups of roughly four apps.')
+    print('Rank within each group: Spotlight use count, then last-used date; not Screen Time duration.')
+    print('Missing use count or unavailable app: preserve original order after measured pins in that group.')
     for item in result['ranking']:
         data = item['tile'].get('tile-data', {})
         label = item['path'].stem if item['path'] else data.get('file-label', 'Existing unavailable or non-app tile') if isinstance(data, dict) else 'Existing tile'
@@ -178,8 +224,8 @@ def show_plan(result):
         basis = 'original order (use count unavailable)' if count is None else (
             'use count ' + str(count)
             + '; last used ' + (date.isoformat() + ' UTC' if date else 'unavailable'))
-        print(f'  {label}: {basis}')
-    print(f"{result['added']} discovered apps added; {result['removed']} old spacer/duplicate tiles replaced.")
+        print(f"  Group {item['group']} — {label}: {basis}")
+    print(f"{result['groups']} groups; {result['added']} discovered apps added; {result['removed']} excess spacer/duplicate tiles removed.")
 
 
 @contextmanager

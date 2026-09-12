@@ -11,7 +11,7 @@ For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with an anim
 1. Copy or unzip the entire `neon-horizon-mac` folder onto your Mac.
 2. Open `wallpaper/index.html` to preview the finished animation.
 3. Double-click **Start.command**. Choose **1** to preview, then **2** to apply the complete native preset after reviewing it. The setup tool needs [Python 3](https://www.python.org/downloads/macos/); the wallpaper and manual guide do not.
-4. In **Start.command**, choose **6** to preview a personalized Dock, then **7** to apply it. Screen Sharing stays first after Finder; the rest uses your own pinned apps and available macOS usage metadata.
+4. In **Start.command**, choose **6** to preview a personalized Dock, then **7** to apply it. Screen Sharing stays first after Finder; your own app groups keep their spacing, with usage ordering inside each group.
 5. Follow [Setup](docs/SETUP.md) for Plash, the remaining native UI settings, and optional desktop controls.
 
 The preset offers **39 settings in seven groups**. It saves the original values outside the repository before changing them. It never replaces your Dock app list, moves your existing files, changes key-repeat speed, installs apps, grants permissions, or restarts your Mac.
@@ -27,7 +27,9 @@ The available groups are `appearance`, `dock`, `finder`, `desktop`, `calendar`, 
 
 ## One Dock layout, your apps
 
-The optional layout tool puts **Screen Sharing immediately after Finder**, followed by a small gap and your pinned apps. It ranks apps with available Spotlight use counts first, breaking ties by last-used date; pins without counts retain their relative order afterward. Counts are local metadata, not Screen Time minutes or a guaranteed recent-time window. If none are available, your app order stays intact behind Screen Sharing.
+The optional layout tool puts **Screen Sharing immediately after Finder**, at the start of your first app group. Existing small gaps keep your groups separate, so work tools and media apps stay where you expect them. Usage sorting happens **inside each group**: available Spotlight use counts first, then last-used date; pins without counts retain their relative order afterward in that group. Counts are local metadata, not Screen Time minutes or a guaranteed recent-time window.
+
+For a Dock without meaningful groups, the tool sorts once and adds balanced spacing: roughly four apps per group, up to four groups. Later runs preserve those groups. It does not guess app categories or copy the source Mac’s lineup.
 
 ```sh
 python3 dock.py plan
@@ -37,7 +39,7 @@ python3 dock.py plan --discover
 python3 dock.py apply --discover --confirm
 ```
 
-It preserves app installations and folder stacks, removes old spacer tiles and duplicate paths, and saves the original app layout outside the repository. It runs only when requested: icons do not rearrange in the background. No usage history, personal app list, or backup is shipped with the repo. To refresh the order later, run it again.
+It preserves app installations, folder stacks and existing group boundaries, collapses empty gaps and duplicate paths, and saves the original app layout outside the repository. Discovered apps appear in a separate final group; existing groups keep their membership. It runs only when requested: icons do not rearrange in the background. No usage history, personal app list, or backup is shipped with the repo. To refresh the order later, run it again.
 
 ```sh
 python3 dock.py backups

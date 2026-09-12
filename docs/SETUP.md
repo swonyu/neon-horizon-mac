@@ -110,12 +110,12 @@ These reproduce the remaining visual choices through each Mac's own controls. Re
 
 ### Dock and menu bar
 
-- Use **Start.command → 6** to preview and **7** to apply the shared Dock layout with your own pinned apps. Screen Sharing becomes the first app after Finder, followed by one small gap and apps ordered by available local usage counts. Unmeasured pins keep their relative order. The layout changes only when you run it.
-- Optional discovery: `python3 dock.py plan --discover` previews up to three additional top-level apps from `/Applications` and `~/Applications` with positive usage counts. Apply with `python3 dock.py apply --discover --confirm`.
+- Use **Start.command → 6** to preview and **7** to apply the shared Dock layout with your own pinned apps. Screen Sharing becomes the first app after Finder inside your first group. Existing gaps preserve your app groups; apps are ordered by local usage counts only within their group. Unmeasured pins keep their relative order afterward in that group. Without meaningful groups, setup adds balanced gaps around roughly four apps, with at most four groups; later runs keep those boundaries. The layout changes only when you run it.
+- Optional discovery: `python3 dock.py plan --discover` previews up to three additional top-level apps from `/Applications` and `~/Applications` with positive usage counts, placed in a separate final group. Apply with `python3 dock.py apply --discover --confirm`.
 - Usage counts come from Spotlight metadata, not time spent in apps. Missing counts are reported rather than guessed. Use **Start.command → 8** to undo; it preserves later edits to your Dock and conservatively skips if macOS has changed tile metadata. Relaunch the Dock or log out/in to show changes.
 - Drag Downloads to the folder side of the Dock. Choose **List** and **Date Added** in its context menu.
 - Drag Applications to the folder side; display it as a folder and use Grid or List.
-- The personalized layout supplies one gap. Extra separators are optional; see the command below. No personal app lineup is bundled.
+- The personalized layout preserves your group spacing and consolidates empty gaps. You can drag gaps to change the groups; later setup runs respect those boundaries. Extra separators are optional; see the command below. No personal app lineup is bundled.
 - System Settings > Menu Bar (or Control Center): show **Sound** and **Bluetooth**, enable **battery percentage**, and keep Focus/Now Playing visible when active.
 - Enable the menu-bar background where supported. Turn off Control Gallery suggestions, and set Recent Items to **5**.
 
