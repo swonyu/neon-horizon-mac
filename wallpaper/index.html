@@ -152,7 +152,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
 /* Painted reflection columns, breathing. These are tuned against the graded
    image, never the pre-knockdown one. */
 .smear{position:absolute;width:.8%;transform:translateX(-50%) scaleY(1.02);
-  background:linear-gradient(transparent,var(--c),transparent);
+  background:radial-gradient(ellipse 50% 50% at 50% 50%,var(--c),transparent);
   /* mean of the .12<->.26 keyframes, so the frozen frame is not the floor */
   transform-origin:50% 0;opacity:.19;
   animation:smear calc(var(--t)*var(--st)) ease-in-out infinite;
@@ -182,7 +182,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
    does, and unlike a wake it has no direction to contradict. */
 .boat-glow{position:absolute;left:38%;top:78%;width:22%;height:360%;transform-origin:50% 0;
   transform:scaleY(.86);
-  background:linear-gradient(180deg,#ff5fd2cc,#ff5fd233 45%,transparent);
+  background:radial-gradient(ellipse 50% 100% at 50% 0%,#ff5fd2cc,#ff5fd233 45%,transparent);
   filter:blur(1.6px);opacity:.5;
   animation:colshimmer calc(var(--t)*3.4s) ease-in-out infinite;
   animation-delay:calc(var(--t)*var(--phase))}

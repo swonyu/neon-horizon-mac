@@ -47,3 +47,11 @@ hints. The scene keeps its original artwork, boat movement and palette. It
 uses continuous fitting, conservative water masks, individually placed lights
 and native playback-rate changes. Source, geometry and generated-script checks
 cover the changes; fresh Chrome rendering remains blocked by browser policy.
+
+## 12 September 2026 — supplied-recording follow-up
+
+The user-provided Chrome recording showed older window placements and framing,
+so it did not verify the current build. The review did reveal straight-sided
+pavement and boat glows in code retained by both versions. Their existing
+backgrounds now fade elliptically. Source checks and package rebuilding cover
+the change; a post-reload recording is still needed to judge its appearance.

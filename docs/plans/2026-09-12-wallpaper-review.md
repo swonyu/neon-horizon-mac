@@ -1,6 +1,6 @@
 # Animated wallpaper implementation plan
 
-Goal: resolve W01–W13 in the [critique](../WALLPAPER-CRITIQUE.md), preserving the
+Goal: resolve W01–W14 in the [critique](../WALLPAPER-CRITIQUE.md), preserving the
 magenta painting, portable single HTML file and current native Mac setup.
 
 Approach: refine the existing CSS/SVG scene. A continuous aspect-preserving fit
@@ -33,6 +33,10 @@ new render loop. No runtime dependency or raster-art change is needed.
 - [x] Update existing regression expectations, run the full portable suite
   with image dependencies and independent diff review, rebuild the final HTML,
   and document remaining rendered-review limits.
+- [x] W14: review the supplied recording, identify its older window/framing
+  signatures, and soften the lateral edges of the unchanged pavement/boat glow
+  backgrounds with radial gradients. Retain their geometry, color and animation.
+
 Delivery: commit locally, integrate into matching main while preserving unrelated
 edits, validate a ZIP from the commit, and append the actual work to the session
 note. The receipt beside the archive records the completed delivery and exact hashes.

@@ -16,6 +16,10 @@ flipped reflections extend below their waterlines. The reflection transform
 translates the sprite before applying the negative vertical scale; without that
 translation, it renders upward into the hull.
 
+Pavement smears fade toward all sides through a centered ellipse. Boat light
+columns use a top-anchored ellipse, tapering sideways and down toward the water;
+this avoids the previous rectangular edges without adding layers.
+
 Animation periods vary to reduce obvious synchronization. Some are deliberately
 coupled: the world drift and near-plane dolly both use 233 seconds. The falling
 tile offsets alone recur after about 48.91 minutes; this is not the repeat period

@@ -14,7 +14,9 @@ do not consistently preserve the same composition.
 This is a source-and-image review. The user opened the correct local wallpaper
 in Chrome and the tab inventory confirmed it. The browser tool still rejected
 selecting that tab for inspection and explicitly prohibited alternate routes.
-No claim below is a measured frame-rate, power result or fresh rendered comparison.
+A subsequent user-supplied recording was reviewed as described below. It shows an
+older loaded scene, so it does not verify the current build or provide measured
+frame-time or power results.
 
 ## Findings
 
@@ -33,6 +35,7 @@ No claim below is a measured frame-rate, power result or fresh rendered comparis
 | W11 | The blue tower emitter is at (88.9%,60%), away from the cyan strip near (75.74%,38.02%). | Move and narrow the emitter around the actual source. | Fixed; checked in source |
 | W12 | The evenly spaced lamp grid extends past the warm railing fixtures; its sixth point is on a cool background building. | Keep the two individually confirmed warm fixtures, each with its own vertical coordinate. | Fixed; checked in source |
 | W13 | Rain tiles keep fixed pixel dimensions while the painting shrinks, making drops relatively larger and sparser in narrow previews. | Scale tile size, loop travel and overscan together in painting coordinates. | Fixed; checked in source |
+| W14 | In the supplied recording, several pavement smears and boat glows have straight, rectangular sides. Their vertical-only gradient definitions remain unchanged in the newer source. | Use elliptical opacity falloff for these two existing light layers, retaining their placement, tint and motion. | Fixed in source; post-change footage pending |
 
 ## What was retained, and why
 
@@ -61,9 +64,35 @@ No claim below is a measured frame-rate, power result or fresh rendered comparis
 - **Packaging:** rebuild HTML from source, verify the exact package, and retain
   local-only publication. The existing host is outside this visual change.
 
+## User-supplied recording review
+
+Reviewed nine sampled frames from the first 30 seconds of a 48.015-second,
+3022 × 1812 recording supplied on 12 September. The user identified the city
+as the wallpaper open in Chrome. Later unrelated desktop content was excluded
+from the wallpaper review and is not included in the package.
+
+The recording contains the older pair of cool window squares on the foreground
+parapet. Their positions match the old `(45.30%,78.15%)` and `(45.24%,77.36%)`
+anchors; neither exists in the revised source. The enlarged, bottom-aligned
+composition also agrees with the earlier framing. The separate Chrome tab inventory lists the current repository wallpaper path,
+which is consistent with a tab that retained the older document after the file
+changed. The footage itself does not show the URL or an exact build identifier.
+
+Both boats visibly move over open water in the sampled interval and their
+light columns extend below them. The painting retains its magenta sunset and
+warm foreground. No additional boat-over-building defect or definite rain-loop
+seam was established. Sampling a recording does not certify continuous smoothness,
+the complete animation cycle, frame rate or battery use.
+
+One new polish finding applies to code shared by both versions: pavement smears
+and boat glows have straight lateral edges. W14 changes their opacity falloff to
+ellipses, which reach transparency at both sides, using the existing backgrounds.
+It adds no overlay elements, animation clocks or dependencies. The updated
+appearance still needs a recording made after reloading the current file.
+
 ## Verification and limits
 
-All 13 source findings have corresponding repairs and runnable checks. The
+The first 13 source findings have corresponding repairs and runnable checks. The
 [implementation plan](plans/2026-09-12-wallpaper-review.md) maps each repair to
 its validation. The image rebuild passed the original brightness gates, and all
 three embedded WebPs plus `still.png` remain byte-identical to the baseline.
