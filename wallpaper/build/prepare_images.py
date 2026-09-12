@@ -12,7 +12,9 @@ Gate (checked and printed by this script, not asserted by eye):
   sky            unchanged within +/-1
   and the real one: sky p95 must EXCEED promenade p95.
 """
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -110,7 +112,16 @@ def sample(img, label):
 
 
 def main():
-    city = Image.open(SRC / 'city-source.png')
+    # convert() fully decodes the image while its source file is open. Both
+    # inputs must be usable before grading or publishing any derived output.
+    try:
+        with Image.open(SRC / 'city-source.png') as source:
+            city = source.convert('RGB')
+        with Image.open(SRC / 'boat-source.png') as source:
+            boat = source.convert('RGBA')
+    except (OSError, ValueError) as error:
+        print(f'Cannot load source artwork: {error}', file=sys.stderr)
+        return 1
     print('Value knockdown')
     before_p, before_s = sample(city, 'before')
     graded = apply_knockdown(city)
@@ -132,29 +143,31 @@ def main():
         print('Grading rejected; previous outputs retained.', file=sys.stderr)
         return 1
 
-    OUT.mkdir(exist_ok=True)
-    graded.save(OUT / 'city-graded.png')
+    try:
+        # Staging keeps source, grading and encoding failures from replacing
+        # any previous product. Each final replacement is atomic; publishing
+        # five files is not a transaction across crashes or filesystem errors.
+        with tempfile.TemporaryDirectory(prefix='.neon-images-', dir=OUT.parent) as folder:
+            stage = Path(folder)
+            graded.save(stage / 'city-graded.png')
+            graded.save(stage / 'city.webp', quality=90, method=6)
+            # Exactly 3:1, matching .boat-art's declared aspect-ratio.
+            boat.resize((768, 256), Image.LANCZOS).save(stage / 'boat.webp', quality=90, method=6)
+            # The small plate fills space outside the fitted painting.
+            graded.resize((64, 43), Image.LANCZOS).save(
+                stage / 'city-blur.webp', quality=82, method=6)
+            apply_bloom(graded).save(stage / 'still.png')
 
-    # Step 4: encode. The graded PNG stays as the master for the bloom pass.
-    graded.convert('RGB').save(OUT / 'city.webp', quality=90, method=6)
-    boat = Image.open(SRC / 'boat-source.png').convert('RGBA')
-    # 768x256 is exactly 3:1, matching .boat-art's declared aspect-ratio.
-    boat.resize((768, 256), Image.LANCZOS).save(OUT / 'boat.webp', quality=90, method=6)
+            OUT.mkdir(exist_ok=True)
+            for name in ('city-graded.png', 'city.webp', 'boat.webp', 'city-blur.webp'):
+                os.replace(stage / name, OUT / name)
+            os.replace(stage / 'still.png', HERE.parent / 'still.png')
+    except (OSError, ValueError) as error:
+        print(f'Image preparation failed: {error}', file=sys.stderr)
+        return 1
 
-    for f in ('city.webp', 'boat.webp'):
-        print(f'  {f}: {(OUT / f).stat().st_size / 1024:.1f} KB')
-
-    # Pillarbox plate for displays past 1.85:1. build.py requires this file, so
-    # it must be generated here or the documented rebuild fails on a clean
-    # checkout (build/out/ is gitignored). The browser's upscale IS the blur.
-    graded.resize((64, 43), Image.LANCZOS).save(
-        OUT / 'city-blur.webp', quality=82, method=6)
-    print(f'  city-blur.webp: {(OUT / "city-blur.webp").stat().st_size / 1024:.1f} KB')
-
-    # README preview: the graded painting with an approximate offline bloom.
-    print('Preview still')
-    still = apply_bloom(graded)
-    still.save(HERE.parent / 'still.png')
+    for name in ('city.webp', 'boat.webp', 'city-blur.webp'):
+        print(f'  {name}: {(OUT / name).stat().st_size / 1024:.1f} KB')
     print(f'  still.png: {(HERE.parent / "still.png").stat().st_size / 1024:.1f} KB')
     return 0
 

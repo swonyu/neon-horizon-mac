@@ -50,8 +50,11 @@ It omits animated overlays and display-dependent cropping/filtering.
 
 The checked reference environment is Python 3.12, NumPy 2.3.5, Pillow 12.3.0 and
 libwebp 1.6.0. Assembly resets its random seed on each build, including repeat
-calls in one process. All prepared assets must exist before assembly; complete
-HTML is published atomically. Encoder upgrades may change compressed bytes.
+calls in one process. Source images are decoded and all outputs encoded in staging
+before image preparation publishes them. Source/grade/encode failures preserve
+prior products; replacing several output files is not a cross-file transaction.
+Assembly validates prepared WebP/SVG structure before publishing complete HTML
+atomically. Encoder upgrades may change compressed bytes.
 
 ## Accessibility and calm mode
 
@@ -108,13 +111,14 @@ placement, visibility pausing and calm transitions. Its interaction execution
 uses a mocked document when Node.js is available.
 
 `tests/build-selfcheck.py` checks reflection geometry, static atmosphere,
-repeatable assembly, missing-asset and publication failures, and preservation of
-previous outputs after a rejected grade, stationary shimmer, water-mask blending
-and inactive animation hints. `water-selfcheck.py` checks emitted placement
+repeatable assembly, exact agreement between the template rebuild and shipped
+HTML, invalid/missing assets, publication failures, and preservation of previous
+outputs after rejected grading, missing/corrupt source images or encoding errors.
+It also checks stationary shimmer, water-mask blending and inactive animation hints. `water-selfcheck.py` checks emitted placement
 bounds across 65 seeds; `framing-selfcheck.py` checks six aspect ratios, complete
 boat paths, near-rain sky exclusion and seamless proportional rain tiles.
 The grading check requires Pillow and
 NumPy; the others use only the standard library. Lua checks cover the optional
-controls separately. See the [audit record](AUDIT-2026-09-12.md) for what was
-actually verified and which live checks remain. The subsequent
+controls separately. See the [current audit record](REVIEW-2026-09-12.md) for what was
+actually verified and which live checks remain. The earlier
 [wallpaper critique](WALLPAPER-CRITIQUE.md) records the focused visual-source pass.

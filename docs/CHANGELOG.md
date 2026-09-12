@@ -72,3 +72,14 @@ Checks: 18 Dock cases, 18 edge scenarios, nine shortcut bindings and existing fu
 The default Dock policy now preserves each person's spacer-defined app groups and sorts usage only inside those groups. Screen Sharing leads the first group without an isolated gap. Empty gaps are consolidated, and unavailable pins keep their group membership. For an ungrouped Dock, setup creates balanced visual groups of roughly four apps, capped at four groups, then respects those boundaries on later runs. Optional discovered apps form a separate final group.
 
 This replaces the earlier single-gap, globally ranked layout. Native Dock backups and conservative undo remain unchanged. No app categories, personal app lineup or continuous app tracker are bundled.
+
+## 12 September 2026 — second repository review
+
+- Recheck a preference after its journal is published so an edit made during backup writing is preserved.
+- Recreate a selected screenshot directory on repeat apply even when its saved preference already matches. Preview and cancellation remain inert.
+- Revalidate installed host files and the service plist at the start/acceptance boundary; preserve a service plist replaced during uninstall.
+- Prepare and encode wallpaper assets in staging before publishing; reject invalid prepared assets before replacing the HTML.
+- Compare rebuilt HTML with the shipped page, and add a macOS CI workflow running the existing Python, native-adapter, image, Node, Dock and Lua checks.
+- Refresh the [current review](REVIEW-2026-09-12.md) and setup instructions. Existing Dock group behavior, painting, animation design and keyboard settings are unchanged.
+
+The review report records verification status and remaining live-render, gesture, login and other-Mac limits.

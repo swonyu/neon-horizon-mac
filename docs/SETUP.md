@@ -27,7 +27,7 @@ The complete preset includes:
 
 The tool refuses values it cannot write and restore exactly, including decimal values the native preference writer would round.
 
-The screenshot folder is created if needed. Existing screenshots are not moved. Desktop files remain in Finder's Desktop folder. Clipboard history applies to future supported copies; it cannot recover earlier copies or promise permanent storage of everything.
+The screenshot folder is created if needed whenever the desktop group is applied, including when its saved preference already matches but the directory was removed. Previewing or declining confirmation creates nothing. Existing screenshots are not moved. Desktop files remain in Finder's Desktop folder. Clipboard history applies to future supported copies; it cannot recover earlier copies or promise permanent storage of everything.
 
 Open System Settings and Finder to verify the visible results. Some values take effect after an app is reopened or after your next logout/login. The script does not force-quit apps. If macOS ignores a setting, use its corresponding native control in this guide.
 
@@ -63,7 +63,7 @@ python3 wallpaper/host.py --install
 
 The installer copies only the HTML and host script into `~/Library/Application Support/Neon Horizon Makeover/Wallpaper`, writes `~/Library/LaunchAgents/org.neonhorizon.wallpaper.plist`, and starts the host. It opens Plash only after the listening socket is ready. Add/select the URL in Plash once. Turn off Plash's separate Launch at login option to avoid a startup race. The installed copy works even if you move the repository afterward.
 
-Repeating the command verifies an identical running install and restores any missing matching files. It checks the loaded service identity and the served artwork before reporting success. A matching partial install can be resumed. It refuses different or edited setup files, a changed port/interpreter configuration, or a port occupied by another service. If setup stops partway, the two exact locations above contain its files; the disable command below can remove a recognized service file. A malformed or edited plist is preserved: keep a copy and inspect it before manually moving it aside, then retry. Do not remove an unfamiliar service by its label. It will not replace another existing installation.
+Repeating the command verifies an identical running install and restores any missing matching files. It checks the loaded service identity and the served artwork before reporting success, and rechecks installed files and the service configuration immediately before starting or accepting the host. A matching partial install can be resumed. It refuses different or edited setup files, a changed port/interpreter configuration, or a port occupied by another service. If setup stops partway, the two exact locations above contain its files; the disable command below can remove a recognized service file. A malformed or edited plist is preserved: keep a copy and inspect it before manually moving it aside, then retry. Do not remove an unfamiliar service by its label. It will not replace another existing installation.
 
 To disable the login host:
 
@@ -71,7 +71,7 @@ To disable the login host:
 python3 wallpaper/host.py --uninstall
 ```
 
-Then choose a different Plash website, or quit Plash. Artwork and host files are retained. To update the installed copy, disable it first, rename the retained `Wallpaper` folder to keep it as a backup, then run the install command from the new repository version. If your Python installation moves or is removed, reinstall the login host so its interpreter path is refreshed.
+Then choose a different Plash website, or quit Plash. Artwork and host files are retained. If the service configuration changes while it is stopping, uninstall leaves the edited file in place and reports that it needs review; it does not delete the replacement. To update the installed copy, disable it first, rename the retained `Wallpaper` folder to keep it as a backup, then run the install command from the new repository version. If your Python installation moves or is removed, reinstall the login host so its interpreter path is refreshed.
 
 To remove the local-file setup, choose a different site or quit Plash and disable its Launch at login. Restore the ordinary wallpaper through System Settings.
 
@@ -159,7 +159,7 @@ The generator is Mac-only. Apple system symbols are not included as redistributa
 
 ### Neon Minimal Terminal profile
 
-Open `controls/Neon-Minimal.terminal` to import the dark magenta, 14-point monospace profile. Select it in Terminal > Settings > Profiles and choose Default only if wanted. Return to your previous default profile to undo. The file contains only visual properties; it contains no shell command or working directory. Importing it was prepared, but setting it as the startup/default profile was not live-verified in the source session.
+Open `controls/Neon-Minimal.terminal` to import the dark magenta, 14-point monospace profile. Select it in Terminal > Settings > Profiles and choose Default only if wanted. Return to your previous default profile to undo. The file contains only visual properties; it contains no shell command or working directory. On the source Mac, the imported profile and its saved default/startup selections were verified. Terminal window access was restricted, so a newly opened window using that profile was not visually verified. Check the result on your own Mac.
 
 ## 5. Optional two-second desktop edge switch
 

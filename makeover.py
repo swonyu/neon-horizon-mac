@@ -137,6 +137,8 @@ def apply(changes, directory, reader=read_domain, writer=write_key):
             raise RuntimeError('Setting changed during setup; stopped at ' + change['key'])
         record['changes'].append(change)
         save(journal, record)  # Record before attempting the write, including partial failures.
+        if not same(reader(change['domain']).get(change['key']), change['before']):
+            raise RuntimeError('Setting changed during setup; stopped at ' + change['key'])
         writer(change['domain'], change['key'], change['after'])
         if not same(reader(change['domain']).get(change['key']), change['after']):
             raise RuntimeError('Could not verify ' + change['key'] + '; undo file: ' + str(journal))
@@ -224,9 +226,9 @@ def main():
             return
     with locked(STATE):
         # apply() rejects edits since this exact preview; never silently rebase it.
-        for change in changes:
-            if (change['domain'], change['key']) == ('com.apple.screencapture', 'location'):
-                Path(change['after']).mkdir(parents=True, exist_ok=True)
+        for setting in settings:
+            if (setting['domain'], setting['key']) == ('com.apple.screencapture', 'location'):
+                Path(setting['after']).mkdir(parents=True, exist_ok=True)
         journal = apply(changes, STATE)
     print('Settings saved and read back.' if journal else 'Already configured; no new backup needed.')
     if journal:

@@ -12,7 +12,8 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, quote_from_bytes, unquote_to_bytes
+import xml.etree.ElementTree as ET
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -46,8 +47,45 @@ BALLAST = [
 ]
 
 
-def data_uri(path, mime='image/webp'):
-    return f'data:{mime};base64,' + base64.b64encode(path.read_bytes()).decode('ascii')
+def data_uri(path):
+    """Validate the static WebP container, then embed those same bytes.
+
+    This checks the RIFF/chunk envelope, not compressed-pixel decoding.
+    """
+    data = path.read_bytes()
+    if (len(data) < 20 or data[:4] != b'RIFF' or data[8:12] != b'WEBP'
+            or int.from_bytes(data[4:8], 'little') + 8 != len(data)):
+        raise ValueError(f'{path.name}: invalid WebP header or file size')
+    offset, images = 12, 0
+    while offset < len(data):
+        if offset + 8 > len(data):
+            raise ValueError(f'{path.name}: truncated WebP chunk header')
+        kind = data[offset:offset + 4]
+        size = int.from_bytes(data[offset + 4:offset + 8], 'little')
+        end = offset + 8 + size
+        if end + (size & 1) > len(data) or (size & 1 and data[end] != 0):
+            raise ValueError(f'{path.name}: truncated WebP chunk or invalid padding')
+        if kind in (b'VP8 ', b'VP8L'):
+            if size < (10 if kind == b'VP8 ' else 5):
+                raise ValueError(f'{path.name}: truncated WebP image header')
+            images += 1
+        offset = end + (size & 1)
+    if images != 1:
+        raise ValueError(f'{path.name}: expected one static WebP image')
+    return 'data:image/webp;base64,' + base64.b64encode(data).decode('ascii')
+
+
+def waterfall_uri(path):
+    uri = path.read_text().strip()
+    prefix = 'data:image/svg+xml,'
+    if not uri.startswith(prefix):
+        raise ValueError(f'{path.name}: expected an SVG data URI')
+    payload = unquote_to_bytes(uri[len(prefix):])
+    root = ET.fromstring(payload)
+    if root.tag != '{http://www.w3.org/2000/svg}svg' or not len(root):
+        raise ValueError(f'{path.name}: empty or invalid SVG document')
+    # Keep literal quotes/whitespace in edited SVG data from breaking CSS url().
+    return prefix + quote_from_bytes(payload, safe='')
 
 
 def boats():
@@ -92,6 +130,13 @@ def main():
         print('Run prepare_images.py for WebP assets; restore falltile.txt if missing.', file=sys.stderr)
         return 1
 
+    try:
+        artwork = {path.name: data_uri(path) for path in required[:-1]}
+        waterfall = waterfall_uri(required[-1])
+    except (OSError, ValueError, ET.ParseError) as error:
+        print(f'Invalid build asset: {error}', file=sys.stderr)
+        return 1
+
     tiles = {name: uri for name, uri, *_ in
              ((n, rain_tiles.data_uri(rain_tiles.build_tile(n, s)[0]))
               for n, s in (('far', 20260911), ('mid', 20260912),
@@ -101,11 +146,11 @@ def main():
         tiles[k] = v[len('url("'):-len('")')]
 
     css = scene.CSS.substitute(
-        CITY=data_uri(OUT / 'city.webp'),
-        BOAT=data_uri(OUT / 'boat.webp'),
-        CITYBLUR=data_uri(OUT / 'city-blur.webp'),
+        CITY=artwork['city.webp'],
+        BOAT=artwork['boat.webp'],
+        CITYBLUR=artwork['city-blur.webp'],
         WATERMASK='data:image/svg+xml,' + quote(scatter.water_mask(), safe=''),
-        FALLTILE=(HERE / 'falltile.txt').read_text().strip(),
+        FALLTILE=waterfall,
         RAIN_FAR=tiles['far'], RAIN_MID=tiles['mid'],
         RAIN_NEAR=tiles['near'], RAIN_WARM=tiles['warm'],
     )

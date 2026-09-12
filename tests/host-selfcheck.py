@@ -276,13 +276,133 @@ def active_listener_is_preserved():
         assert not any(call[1] == 'bootstrap' for call in calls)
 
 
+def late_install_changes_preserved():
+    variants = ['host file', 'host symlink', 'saved plist', 'plist symlink', 'install symlink']
+    for variant, loaded in [(variant, loaded) for variant in variants for loaded in [False, True]]:
+        with installation() as (directory, state, calls, port), patch.object(host, 'wait_ready') as ready:
+            config = host.agent_config(port)
+            state['loaded'] = loaded
+            if 'plist' in variant or loaded:
+                host.AGENT.write_bytes(plistlib.dumps(config))
+            foreign = directory / 'foreign'
+            foreign.write_bytes(b'User-owned late content')
+            original = host.subprocess.run
+            changed = []
+            def late_change(args, **kwargs):
+                if args[:3] == ['/usr/bin/open', '-Ra', 'Plash']:
+                    if variant == 'install symlink':
+                        outside = directory / 'outside'
+                        outside.mkdir()
+                        host.INSTALL.symlink_to(outside, target_is_directory=True)
+                        changed.append(host.INSTALL)
+                    elif 'host' in variant:
+                        host.INSTALL.mkdir()
+                        target = host.INSTALL / 'host.py'
+                        if variant == 'host symlink':
+                            target.symlink_to(foreign)
+                        else:
+                            target.write_bytes(foreign.read_bytes())
+                        changed.append(target)
+                    else:
+                        if variant == 'plist symlink':
+                            host.AGENT.unlink()
+                            host.AGENT.symlink_to(foreign)
+                        else:
+                            altered = dict(config, ProgramArguments=['/different/python', '/different/script'])
+                            host.AGENT.write_bytes(plistlib.dumps(altered))
+                        changed.append(host.AGENT)
+                return original(args, **kwargs)
+            with patch.object(host.subprocess, 'run', side_effect=late_change):
+                try:
+                    host.install(port)
+                except (ValueError, OSError):
+                    pass
+                else:
+                    raise AssertionError('Late ' + variant + ' reached installation success')
+            assert not any(call[1] == 'bootstrap' for call in calls), variant
+            ready.assert_not_called()
+            assert changed[0].exists() and foreign.read_bytes() == b'User-owned late content'
+            if variant.endswith('symlink'):
+                assert changed[0].is_symlink()
+                if variant == 'install symlink':
+                    assert list(changed[0].iterdir()) == [], 'Published assets through a changed install directory'
+            elif variant == 'host file':
+                assert changed[0].read_bytes() == foreign.read_bytes()
+            else:
+                assert plistlib.loads(changed[0].read_bytes())['ProgramArguments'] == ['/different/python', '/different/script']
+
+
+def changes_during_publication_preserved():
+    for variant in ['host.py', 'index.html', 'extra.txt', 'missing artwork', 'reformatted plist']:
+        with installation() as (directory, state, calls, port), patch.object(host, 'wait_ready') as ready:
+            original = host.publish
+            edited = b'Late user edit after assets were published'
+            def changed_after_publication(path, content):
+                original(path, content)
+                if path == host.AGENT:
+                    if variant == 'reformatted plist':
+                        host.AGENT.write_bytes(content + b'\n')
+                    elif variant == 'missing artwork':
+                        (host.INSTALL / 'index.html').unlink()
+                    else:
+                        (host.INSTALL / variant).write_bytes(edited)
+            with patch.object(host, 'publish', side_effect=changed_after_publication):
+                message = 'Service file changed' if variant == 'reformatted plist' else 'Changed install files'
+                rejected(lambda: host.install(port), message)
+            assert not any(call[1] == 'bootstrap' for call in calls)
+            ready.assert_not_called()
+            if variant == 'reformatted plist':
+                assert host.AGENT.read_bytes() == plistlib.dumps(host.agent_config(port)) + b'\n'
+            elif variant == 'missing artwork':
+                assert not (host.INSTALL / 'index.html').exists()
+            else:
+                assert (host.INSTALL / variant).read_bytes() == edited
+
+
+def replacement_during_uninstall_preserved():
+    for variant in ['edited', 'identical replacement', 'in-place edit', 'reformatted', 'symlink']:
+        with installation() as (directory, state, calls, port):
+            config = host.agent_config(port)
+            host.AGENT.write_bytes(plistlib.dumps(config))
+            state['loaded'] = True
+            replacement = directory / 'replacement.plist'
+            content = plistlib.dumps(dict(config, ThrottleInterval=60) if variant in ['edited', 'in-place edit'] else config)
+            if variant == 'reformatted':
+                content += b'\n'
+            replacement.write_bytes(content)
+            original = host.subprocess.run
+            def replace_during_stop(args, **kwargs):
+                if args[1] == 'bootout':
+                    if variant == 'symlink':
+                        host.AGENT.unlink()
+                        host.AGENT.symlink_to(replacement)
+                    elif variant in ['in-place edit', 'reformatted']:
+                        host.AGENT.write_bytes(content)
+                    else:
+                        os.replace(replacement, host.AGENT)
+                return original(args, **kwargs)
+            with patch.object(host.subprocess, 'run', side_effect=replace_during_stop):
+                try:
+                    host.uninstall()
+                except (ValueError, OSError):
+                    pass
+                else:
+                    raise AssertionError('Uninstall removed a late ' + variant + ' plist')
+            assert host.AGENT.read_bytes() == content and not state['loaded']
+            assert any(call[1] == 'bootout' for call in calls)
+            if variant == 'symlink':
+                assert host.AGENT.is_symlink() and replacement.read_bytes() == content
+
+
 if __name__ == '__main__':
     failures = []
     for check in [missing_loaded_artwork, foreign_job_preserved, malformed_plist_preserved,
                   partial_publication, symlink_install_preserved, lifecycle_and_durability,
                   publication_does_not_clobber, ambiguous_service_preserved,
                   missing_artwork_startup, missing_artwork_http, readiness_verifies_content,
-                  stopped_port_is_reusable, active_listener_is_preserved]:
+                  stopped_port_is_reusable, active_listener_is_preserved,
+                  late_install_changes_preserved, changes_during_publication_preserved,
+                  replacement_during_uninstall_preserved]:
         try:
             check()
             print('PASS:', check.__name__)

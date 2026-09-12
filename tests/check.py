@@ -35,6 +35,83 @@ def module(name, path):
 m = module('makeover', ROOT / 'makeover.py')
 host = module('wallpaper_host', ROOT / 'wallpaper/host.py')
 
+
+def check_preference_edit_during_publication():
+    with tempfile.TemporaryDirectory(prefix='neon-publication-edit-') as temporary:
+        directory = Path(temporary)
+        values, writes = {'size': 72}, []
+        change = {'domain': 'com.apple.dock', 'key': 'size', 'before': 72, 'after': 48, 'label': 'Size'}
+        original_save = m.save
+        def edited_during_save(path, record):
+            original_save(path, record)
+            values['size'] = 90
+        def writer(domain, key, value):
+            writes.append((domain, key, value))
+            values[key] = value
+        with patch.object(m, 'save', side_effect=edited_during_save):
+            try:
+                m.apply([change], directory, lambda _: dict(values), writer)
+            except RuntimeError as error:
+                assert 'changed' in str(error)
+            else:
+                raise AssertionError('Edit made during journal publication was overwritten')
+        assert values == {'size': 90} and not writes
+        records = list(directory.glob('*.json'))
+        assert len(records) == 1 and json.loads(records[0].read_text())['changes'] == [change]
+
+
+def check_screenshot_directory_repair():
+    with tempfile.TemporaryDirectory(prefix='neon-screenshot-repair-') as temporary:
+        directory = Path(temporary)
+        destination = directory / 'Screenshots'
+        setting = {'domain': 'com.apple.screencapture', 'key': 'location',
+                   'after': str(destination), 'label': 'Screenshots'}
+        values, writes = {'location': str(destination), 'size': 72}, []
+        reader = lambda _: dict(values)
+        def writer(domain, key, value):
+            writes.append((domain, key, value))
+            values[key] = value
+        actual_plan, actual_apply = m.plan, m.apply
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(m, 'STATE', directory / 'state'))
+            stack.enter_context(patch.object(m.sys, 'platform', 'darwin'))
+            stack.enter_context(patch.object(m.os, 'geteuid', return_value=501))
+            stack.enter_context(patch.object(m.subprocess, 'check_output', return_value='27.0'))
+            selected = stack.enter_context(patch.object(m, 'load_settings', return_value=[setting]))
+            stack.enter_context(patch.object(m, 'plan', side_effect=lambda s: actual_plan(s, reader)))
+            stack.enter_context(patch.object(m, 'apply', side_effect=lambda c, d: actual_apply(c, d, reader, writer)))
+            stack.enter_context(redirect_stdout(io.StringIO()))
+            for arguments, answer in [(['plan'], None), (['apply', '--confirm'], 'no'),
+                                      (['apply', '--confirm'], EOFError)]:
+                with patch.object(m.sys, 'argv', ['makeover.py', *arguments]), patch('builtins.input', return_value=answer, side_effect=answer if answer is EOFError else None):
+                    m.main()
+                assert not destination.exists() and not writes
+            selected.return_value = []
+            with patch.object(m.sys, 'argv', ['makeover.py', 'apply', '--groups', 'appearance']):
+                m.main()
+            assert not destination.exists() and not writes
+            selected.return_value = [setting]
+            with patch.object(m.sys, 'argv', ['makeover.py', 'apply']):
+                m.main()
+            assert destination.is_dir(), 'Already-matching screenshot destination was not repaired'
+            assert not writes, 'Directory repair unnecessarily rewrote a preference'
+            destination.rmdir()
+            destination.write_text('Existing user file')
+            selected.return_value = [setting, {'domain': 'com.apple.dock', 'key': 'size', 'after': 48, 'label': 'Size'}]
+            with patch.object(m.sys, 'argv', ['makeover.py', 'apply']):
+                try:
+                    m.main()
+                except OSError:
+                    pass
+                else:
+                    raise AssertionError('Unusable screenshot destination was accepted')
+            assert not writes and destination.read_text() == 'Existing user file'
+
+
+check_preference_edit_during_publication()
+check_screenshot_directory_repair()
+print('PASS: late preference edits and repeat screenshot-directory repair')
+
 # Simulate partial writes, concurrent invocations, later user edits and repeated undo.
 with tempfile.TemporaryDirectory(prefix='neon-check-') as temporary:
     directory = Path(temporary)

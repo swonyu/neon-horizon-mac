@@ -4,7 +4,7 @@ For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with an anim
 
 ![Neon Horizon cyberpunk painting](wallpaper/still.png)
 
-**Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md) · [Repository audit](docs/AUDIT-2026-09-12.md)
+**Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md) · [Repository audit](docs/REVIEW-2026-09-12.md)
 
 ## Use it
 
@@ -71,7 +71,7 @@ python3 -m venv .venv
 
 These are the reference versions checked with Python 3.12; they are optional build dependencies, not requirements for using the wallpaper. Different image-encoder versions can produce different compressed bytes.
 
-The first script prints the grading gates and leaves previous outputs intact if a gate fails. The HTML builder requires all prepared assets and replaces the page only when assembly succeeds. See [wallpaper design notes](docs/WALLPAPER.md) for the composition and verification limits.
+The first script validates both source images and stages every encoded output before publishing, so source, grading or encoding failures leave previous outputs intact. Publication replaces several files individually; it is not a cross-file crash transaction. The HTML builder validates the prepared asset structure and replaces the page only when assembly succeeds. See [wallpaper design notes](docs/WALLPAPER.md) for the composition and verification limits.
 
 ## Undo
 
@@ -103,7 +103,9 @@ python3 tests/dock-selfcheck.py
 
 Node.js is optional for executing the wallpaper’s small interaction script against a mocked document. The image-grading failure check runs when Pillow and NumPy are installed; missing optional tools are reported as skipped.
 
-The Python check uses a disposable preference domain on macOS, not your real UI settings. The wallpaper host checks use an ephemeral loopback port and do not install a service.
+The Python check uses a disposable preference domain on macOS, not your real UI settings. The wallpaper host checks use an ephemeral loopback port and do not install a service. It also rebuilds the HTML from its embedded assets and compares it with the shipped page, catching template changes that were not rebuilt.
+
+[GitHub Actions](.github/workflows/checks.yml) runs these checks, the Dock tests and both Lua simulations on a disposable macOS runner for pull requests and pushes to `main`. It installs the optional check dependencies so those checks cannot silently disappear due to a missing tool. Hosted tests do not certify an M5 Mac, a Plash render, Accessibility permissions or a login/reboot.
 
 ## License
 

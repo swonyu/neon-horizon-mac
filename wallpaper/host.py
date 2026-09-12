@@ -139,25 +139,33 @@ def wait_ready(port, config, content):
                        'Files are retained; retry install or use --uninstall.')
 
 
+def check_install_files(expected, complete=False):
+    if INSTALL.is_symlink():
+        raise ValueError('Install directory is a symbolic link; preserved without changes: ' + str(INSTALL))
+    files = list(INSTALL.iterdir()) if INSTALL.exists() else []
+    if complete and {file.name for file in files} != set(expected):
+        raise ValueError('Changed install files found; keep them as a backup before updating. See docs/SETUP.md.')
+    for file in files:
+        if file.is_symlink() or file.name not in expected or not file.is_file() or file.read_bytes() != expected[file.name]:
+            raise ValueError('Changed install files found; keep them as a backup before updating. See docs/SETUP.md.')
+
+
 def install(port):
     sources = [Path(__file__).resolve(), ARTWORK]
     config = agent_config(port)
     saved = read_agent()
     if saved is not None and saved != config:
         raise ValueError('Different service configuration found; disable it before changing the port or Python path.')
+    service_bytes = AGENT.read_bytes() if saved is not None else plistlib.dumps(config)
     loaded = loaded_job(config)
-    if INSTALL.is_symlink():
-        raise ValueError('Install directory is a symbolic link; preserved without changes: ' + str(INSTALL))
     expected = {source.name: source.read_bytes() for source in sources}
-    if INSTALL.exists():
-        for file in INSTALL.iterdir():
-            if file.is_symlink() or file.name not in expected or not file.is_file() or file.read_bytes() != expected[file.name]:
-                raise ValueError('Changed install files found; keep them as a backup before updating. See docs/SETUP.md.')
+    check_install_files(expected)
     subprocess.run(['/usr/bin/open', '-Ra', 'Plash'], check=True, capture_output=True)
     if not loaded:
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(('127.0.0.1', port))  # Do not interfere with another service using this port.
+    check_install_files(expected)  # The app lookup and port check may have taken time.
     INSTALL.mkdir(parents=True, exist_ok=True, mode=0o700)
     for name, content in expected.items():
         target = INSTALL / name
@@ -165,7 +173,11 @@ def install(port):
             publish(target, content)
     AGENT.parent.mkdir(parents=True, exist_ok=True)
     if saved is None:
-        publish(AGENT, plistlib.dumps(config))
+        publish(AGENT, service_bytes)
+    # Validate newly appeared files and edits made while publishing, before activation.
+    check_install_files(expected, complete=True)
+    if read_agent() != config or AGENT.read_bytes() != service_bytes:
+        raise ValueError('Service file changed during setup; preserved without changes: ' + str(AGENT))
     if not loaded:
         subprocess.run(['/bin/launchctl', 'bootstrap', f'gui/{os.getuid()}', str(AGENT)], check=True)
     wait_ready(port, config, expected[ARTWORK.name])
@@ -186,10 +198,18 @@ def uninstall():
             or not args[3].isdigit() or not 1024 <= int(args[3]) <= 65535
             or args[4] != '--open-plash' or config.get('Program', args[0]) != args[0]):
         raise ValueError('Unrecognized service file; refusing to remove it.')
+    original = AGENT.stat()
+    original_bytes = AGENT.read_bytes()
     target = f'gui/{os.getuid()}/{LABEL}'
     loaded = loaded_job(config)
     if loaded:
         subprocess.run(['/bin/launchctl', 'bootout', target], check=True)
+    if read_agent() != config:
+        raise ValueError('Service file changed during uninstall; preserved without changes: ' + str(AGENT))
+    current = AGENT.stat()
+    if ((current.st_dev, current.st_ino) != (original.st_dev, original.st_ino)
+            or AGENT.read_bytes() != original_bytes):
+        raise ValueError('Service file changed during uninstall; preserved without changes: ' + str(AGENT))
     AGENT.unlink()
     sync_directory(AGENT.parent)
     print('Login host disabled. Choose another Plash website or quit Plash. Artwork files are retained.')
