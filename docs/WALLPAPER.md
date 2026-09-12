@@ -32,10 +32,18 @@ on the subject.
 2. **Coprime periods.** No two large-area elements may share a prime factor.
    `tests/check.py` asserts this. The rain field now relocks every ~49 minutes
    instead of every 75 seconds.
-3. **No dwell.** Element-level `animation-timing-function` is `linear`; the
-   easing lives on **per-keyframe** timing functions, which apply per segment.
-   Putting the bezier on the element is the bug an implementer hits first — it
-   reintroduces a dwell at every stop.
+3. **No dwell on anything large.** Every large-area animation — the camera
+   drift, the near-plane dolly, the three haze bands, the boat bob — is
+   asymmetric with **per-keyframe** timing functions, which apply per segment,
+   so none of them decelerates to a stop twice a cycle. Putting the bezier on
+   the element instead is the bug an implementer hits first; it reintroduces the
+   dwell at every stop.
+
+   Nine small accents (glint flare, smear, sail, reflection, colshimmer,
+   fallpulse, bobAir, lamp, emit) keep a plain symmetric ease on purpose: at
+   their size and contrast the dwell is below threshold, and their periods are
+   coprime so they never dwell together. The rule is about large areas, and it
+   is enforced there, not everywhere.
 
 ## The motion budget
 
@@ -79,6 +87,29 @@ visible opacity comes only from keyframes needs a declared base — and that bas
 should be the time-weighted **mean** of the keyframes, not the floor. The
 accessible path should be the best still frame in the file, not the dimmest.
 
+**A layer froze because one custom property was missing.** `.rain::before` sets
+`animation: rainfall-lg var(--speed) linear infinite`, and `--speed` was
+declared on `.far`, `.mid` and `.near` but not on `.warm`. An unresolvable
+`var()` makes the *whole shorthand* invalid at computed-value time, so every
+longhand it sets resets to its initial value — `animation-name: none` included.
+The later `animation-duration` override survived, so the rule still looked live
+in the inspector while the lamp-throw rain sat frozen. The base declaration now
+carries a fallback, and the test suite asserts every `.rain` variant declares
+`--speed`.
+
+**Three screen blends were inert.** `.storm-wrap` animated `opacity`, and an
+element with an opacity animation is an isolated group — so `mix-blend-mode` on
+`.light` and two haze bands could no longer see the painting behind them and
+silently composited source-over. The wrapper now animates a registered custom
+property (`--storm`) instead and stays fully opaque, so the blends reach the
+backdrop. Its `initial-value` is the time-weighted mean, which makes the
+Reduce-Motion still correct for free.
+
+**Fourteen impact rings were multiplied by zero.** The river impacts were
+emitted inside `.plane-near`, whose mask is transparent on exactly the river
+side of the parapet. They were in the DOM, ran their animations, cost layers,
+and rendered nothing. They now live in `.world`.
+
 ## The near plane
 
 The promenade is a second copy of the same image (same `CachedImage`, zero extra
@@ -101,7 +132,11 @@ line on *every* display.
 16:10, 15.6% at 16:9, 35.7% at 21:9. Untreated, the sun ends up jammed under the
 menu bar on a 4K external and gone entirely on an ultrawide.
 
-- Between 3:2 and 1.85:1 the overflow is split rather than all taken off the top.
+- Between 3:2 and 1.85:1 some of the overflow is moved to the bottom instead of
+  all being taken off the top. The correction is capped at `0.9cqh`, and that cap
+  binds for everything wider than about 1.545:1 — so at 16:9 it relocates ~4% of
+  the overflow, not half of it. The cap exists because a larger shift clips the
+  near boat off the bottom edge.
 - Past 1.85:1 the world stops growing and is pillarboxed against a 1.2 KB, 64×43
   plate of itself. The browser's upscale is the blur; no filter pass is needed.
   This also *shrinks* the animated area on the widest, most expensive displays.

@@ -4,7 +4,7 @@ This edition packages a multi-pass Mac makeover into an independent local Git re
 
 ## Included
 
-- The final, self-contained Neon Horizon wallpaper: gusting depth-graded rain, a 44-instance impact field across the wet promenade and near river, traffic on four painted decks plus two aerial lanes, a source-derived bloom, the sun's specular column as the focal point, neon ballast stutter, windows coming on over minutes, distant lightning on the storm cycle, two boats with vertical light columns, waterfalls and rising mist.
+- The final, self-contained Neon Horizon wallpaper: gusting depth-graded rain, a 50-instance impact field across the wet promenade and near river, traffic on four painted decks plus two aerial lanes, a source-derived bloom, the sun's specular column as the focal point, neon ballast stutter, windows coming on over minutes, distant lightning on the storm cycle, two boats with vertical light columns, waterfalls and rising mist.
 - Rebuilt from `wallpaper/build/`, at 0.75 MB rather than 5.0 MB; `#calm` runs everything at one third speed.
 - A static copy of the background painting for the ordinary wallpaper and Lock Screen.
 - A preview-first launcher and 39 explicit native preference values in seven selectable groups.

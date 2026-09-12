@@ -7,7 +7,7 @@ the lower-left quadrant so the sky outranks the pavement, then re-encodes both
 assets to WebP.
 
 Gate (checked and printed by this script, not asserted by eye):
-  promenade p95   162.6 -> 120..130
+  promenade p95   170.3 -> 120..130
   promenade p05   stays <= 5            (blacks must not lift)
   sky            unchanged within +/-1
   and the real one: sky p95 must EXCEED promenade p95.
@@ -72,7 +72,11 @@ def apply_knockdown(img):
 BLOOM_BRIGHTNESS = 1.5
 BLOOM_CONTRAST = 2.6
 BLOOM_SATURATE = 1.25
-BLOOM_SIGMA = 17          # CSS blur(5px) at 25% scale, scaled 4x, in source pixels
+# blur(<length>) sets the Gaussian standard deviation directly, and the filter
+# applies in the element's own coordinate space BEFORE transform:scale(4), so
+# .bloom's blur(5px) is an effective sigma of 20 screen px. Pillow's
+# GaussianBlur takes the same units, so the derivation gives 20.
+BLOOM_SIGMA = 20
 BLOOM_ALPHA = 0.20
 
 
@@ -135,6 +139,13 @@ def main():
 
     for f in ('city.webp', 'boat.webp'):
         print(f'  {f}: {(OUT / f).stat().st_size / 1024:.1f} KB')
+
+    # Pillarbox plate for displays past 1.85:1. build.py requires this file, so
+    # it must be generated here or the documented rebuild fails on a clean
+    # checkout (build/out/ is gitignored). The browser's upscale IS the blur.
+    graded.resize((64, 43), Image.LANCZOS).save(
+        OUT / 'city-blur.webp', quality=82, method=6)
+    print(f'  city-blur.webp: {(OUT / "city-blur.webp").stat().st_size / 1024:.1f} KB')
 
     # README preview. Reproduces the CSS bloom offline so the still matches what
     # the page actually renders, rather than showing the ungraded source.

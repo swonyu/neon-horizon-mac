@@ -104,6 +104,7 @@ def main():
 
     parts = {
         'IMPACT': scatter.impact_field(),
+        'RIVER': scatter.river_impacts(),
         'SMEARS': scatter.smears(),
         'GLINTS': scatter.glints(),
         'BOATS': boats(),

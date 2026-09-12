@@ -150,6 +150,33 @@ assert sum('url%28%23r%29' in t for t in tiles) == 4
 emit_rule = re.search(r'\.emit\{[^}]*\}', page).group(0)
 assert 'opacity:calc((var(--lo) + var(--hi))/2)' in emit_rule
 
+# REGRESSION: `.rain::before` takes its duration from var(--speed). A variant
+# that omits --speed makes the whole `animation` SHORTHAND invalid at
+# computed-value time, which resets every longhand it sets — animation-name
+# included — so that layer's drops freeze while the rule still looks live.
+assert 'var(--speed,calc(' in page, 'the .rain::before shorthand needs a --speed fallback'
+for variant in set(re.findall(r'\.rain\.(\w+)\{', page)):
+    block = re.search(r'\.rain\.%s\{[^}]*\}' % variant, page).group(0)
+    assert '--speed:' in block, f'.rain.{variant} does not declare --speed'
+
+# REGRESSION: an element with an opacity animation is an isolated group, so a
+# mix-blend-mode inside it cannot reach the painting. .storm-wrap contains three
+# screen-blended layers, so it must modulate a custom property, never opacity.
+storm_wrap = re.search(r'\.storm-wrap\{[^}]*\}', page).group(0)
+assert 'storm-var' in storm_wrap and 'opacity' not in storm_wrap
+assert '@property --storm' in page and '@keyframes storm-var{' in page
+
+# REGRESSION: a percentage in translateY resolves against the element's OWN box.
+# .flyer i is 1.6px tall, so a percentage bob there moves nothing.
+assert re.search(r'@keyframes bobAir\{[^}]*translateY\(-?1px\)', page)
+
+# REGRESSION: the river impacts must sit in .world, not inside .plane-near —
+# that mask goes transparent on exactly the river side of the parapet.
+promenade = re.search(r'<div class="plane-near"><div class="wet">(.*?)</div>', page, re.S).group(1)
+assert promenade.count('class="sp"') == 36, promenade.count('class="sp"')
+river = re.search(r'<div class="wet river">(.*?)</div>', page, re.S).group(1)
+assert river.count('class="sp"') == 14, river.count('class="sp"')
+
 reduced = re.search(r'@media\(prefers-reduced-motion:reduce\)\{.*?\n\}', page, re.S).group(0)
 assert '.rain.mid,.rain.near,.rain.warm{display:none}' in reduced  # far rain MUST survive
 assert '.rain.far{opacity:.17}' in reduced                         # brighter than animated floor

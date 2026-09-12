@@ -45,7 +45,13 @@ def in_sodium_column(x, y):
 
 
 def impact_field():
-    """44 instances: 30 on the promenade, 14 on the near river."""
+    """36 impacts on the promenade.
+
+    These are emitted inside .plane-near so they ride the dollying promenade
+    instead of drifting off their painted ground. The river impacts must NOT go
+    here: .plane-near's mask goes transparent on the river side of the parapet,
+    which is exactly where they land, so it would multiply them by zero.
+    """
     sites = []
 
     # Promenade quad, in world percent. Bounded by the parapet on the right.
@@ -69,6 +75,16 @@ def impact_field():
     for x, y, c in EXTRA:
         sites.append((float(x), float(y), c))
 
+    return _emit(sites)
+
+
+def river_impacts():
+    """14 impacts on the near river.
+
+    Deliberately a separate function emitted into .world, NOT into .plane-near:
+    they sit downstream of the bank line, i.e. on the river side of the parapet,
+    which is precisely the half-plane .plane-near's mask erases.
+    """
     river = []
     for _ in range(200):
         if len(river) >= 14:
@@ -79,9 +95,12 @@ def impact_field():
         if y < 75 + 25 * (x - 60) / 40 - 2:
             continue
         river.append((x, y, None))
+    return _emit(river)
 
+
+def _emit(sites):
     out = []
-    for x, y, forced in sites + river:
+    for x, y, forced in sites:
         d = max(0.0, min(1.0, (y - 60.0) / 40.0))       # depth: 0 far, 1 near
         w = 0.45 + d * 2.6
         h = w * (0.20 + d * 0.22)
