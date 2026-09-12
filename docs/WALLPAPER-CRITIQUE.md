@@ -122,4 +122,3 @@ References: [Web Animations playback-rate updates](https://www.w3.org/TR/web-ani
 preserve animation position; [CSS will-change guidance](https://www.w3.org/TR/css-will-change/#will-change)
 recommends dropping preparation hints when changes stop. These support the
 implementation choices, not a performance or visual-quality certification.
-
