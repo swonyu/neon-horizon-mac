@@ -50,6 +50,7 @@ return function()
     for _, app in ipairs({
         {"g", "com.google.Chrome"}, {"t", "com.openai.codex"},
         {"c", "com.anthropic.claudefordesktop"}, {"f", "com.apple.finder"},
+        {"s", "com.apple.ScreenSharing"},
     }) do
         bind({"ctrl", "alt", "cmd", "shift"}, app[1], function()
             hs.application.launchOrFocusByBundleID(app[2])

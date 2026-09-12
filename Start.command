@@ -7,9 +7,12 @@ print '2  Apply the complete preset, including 7-day clipboard history and Optio
 print '3  Undo a previous preset run'
 print '4  Open the wallpaper preview'
 print '5  Open the setup guide'
-read -r 'choice?Choose 1–5 [1]: ' || exit 0
+print '6  Preview a personalized Dock layout'
+print '7  Apply the personalized Dock layout'
+print '8  Undo a personalized Dock layout'
+read -r 'choice?Choose 1–8 [1]: ' || exit 0
 case "${choice:-1}" in
-  1|2|3)
+  1|2|3|6|7|8)
     if ! command -v python3 >/dev/null 2>&1; then
       print 'Python 3 is needed for the optional setup tool. Options 4 and 5 work without it.'
       print 'Download Python from https://www.python.org/downloads/macos/ or use docs/SETUP.md.'
@@ -29,6 +32,15 @@ case "${choice:-1}" in
      } ;;
   4) open wallpaper/index.html ;;
   5) open -t docs/SETUP.md ;;
+  6) python3 dock.py plan ;;
+  7) python3 dock.py apply --confirm ;;
+  8) python3 dock.py backups && {
+     read -r 'backup?Paste the full Dock backup path above, or Return to cancel: '
+     if [[ -n "$backup" ]]; then
+       read -r 'answer?Restore this layout if it has no later edits? Type yes: '
+       if [[ "$answer" == yes ]]; then python3 dock.py undo --backup "$backup"; fi
+     fi
+     } ;;
   *) print 'No changes made.' ;;
 esac
 result=$?

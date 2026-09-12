@@ -220,13 +220,18 @@ if Path('/bin/zsh').exists():
             assert result.returncode == 0 and log.read_text().splitlines() == expected
         (directory/'python3').write_text('#!/bin/sh\nexit 7\n')
         (directory/'python3').chmod(0o755)
-        for choice in ('1', '2', '3'):
+        for choice in ('1', '2', '3', '6', '7', '8'):
             result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input=choice+'\n\n', text=True, capture_output=True, env=env)
             assert result.returncode == 7, 'Launcher lost the setup error status'
         (directory/'python3').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$NEON_TEST_OPEN_LOG"\n')
         backup_path = '/tmp/backup with a \\ literal.json'
         result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input='3\n'+backup_path+'\nyes\n\n', text=True, capture_output=True, env=env)
         assert result.returncode == 0 and log.read_text().splitlines() == ['makeover.py','undo','--backup',backup_path]
+        for choice, expected in [('6', ['dock.py','plan']), ('7', ['dock.py','apply','--confirm'])]:
+            result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input=choice+'\n\n', text=True, capture_output=True, env=env)
+            assert result.returncode == 0 and log.read_text().splitlines() == expected
+        result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input='8\n'+backup_path+'\nyes\n\n', text=True, capture_output=True, env=env)
+        assert result.returncode == 0 and log.read_text().splitlines() == ['dock.py','undo','--backup',backup_path]
     print('PASS: launcher preview/help without Python and preserved error status')
 
 # Exercise the actual defaults adapter in a brand-new, disposable domain only.

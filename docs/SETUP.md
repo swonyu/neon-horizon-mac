@@ -18,7 +18,7 @@ The complete preset includes:
 | Group | Result |
 |---|---|
 | Appearance | Dark appearance, Pink/magenta accent, large sidebar icons, scroll bars when scrolling, click-to-position scrolling, less wallpaper tint in windows |
-| Dock | 48-point icons, magnification up to 60, Scale minimize effect, opening bounce off, recent suggestions off, minimize into app icons, stable desktop order |
+| Dock | 48-point icons, magnification up to 72, Scale minimize effect, opening bounce off, recent suggestions off, minimize into app icons, stable desktop order |
 | Finder | Filename extensions, Home for new windows, current-folder search, folders first when sorting by name, path and status bars, fewer volume icons on the Desktop |
 | Desktop | Tiling margins, hidden desktop file icons and widgets, future screenshots in `~/Pictures/Screenshots` |
 | Calendar | Week numbers and activity shading in Year view |
@@ -110,10 +110,12 @@ These reproduce the remaining visual choices through each Mac's own controls. Re
 
 ### Dock and menu bar
 
-- Keep your own everyday apps and arrange them by purpose. Remove unused **shortcuts**, not apps.
+- Use **Start.command → 6** to preview and **7** to apply the shared Dock layout with your own pinned apps. Screen Sharing becomes the first app after Finder, followed by one small gap and apps ordered by available local usage counts. Unmeasured pins keep their relative order. The layout changes only when you run it.
+- Optional discovery: `python3 dock.py plan --discover` previews up to three additional top-level apps from `/Applications` and `~/Applications` with positive usage counts. Apply with `python3 dock.py apply --discover --confirm`.
+- Usage counts come from Spotlight metadata, not time spent in apps. Missing counts are reported rather than guessed. Use **Start.command → 8** to undo; it preserves later edits to your Dock and conservatively skips if macOS has changed tile metadata. Relaunch the Dock or log out/in to show changes.
 - Drag Downloads to the folder side of the Dock. Choose **List** and **Date Added** in its context menu.
 - Drag Applications to the folder side; display it as a folder and use Grid or List.
-- Native Dock separators are optional; see the small command below. No personal app lineup is bundled.
+- The personalized layout supplies one gap. Extra separators are optional; see the command below. No personal app lineup is bundled.
 - System Settings > Menu Bar (or Control Center): show **Sound** and **Bluetooth**, enable **battery percentage**, and keep Focus/Now Playing visible when active.
 - Enable the menu-bar background where supported. Turn off Control Gallery suggestions, and set Recent Items to **5**.
 
@@ -190,6 +192,9 @@ To enable the optional window/app shortcuts too, uncomment the final line of `co
 | Control-Option-Command-Shift-T | Codex |
 | Control-Option-Command-Shift-C | Claude |
 | Control-Option-Command-Shift-F | Finder |
+| Control-Option-Command-Shift-S | Screen Sharing |
+
+Screen Sharing’s Dock icon and shortcut open or bring its app forward; they do not start a connection or accept a sharing invitation. For a share inside a FaceTime call, return to the FaceTime call and its shared-screen window; pinning the separate Screen Sharing app does not join that share automatically.
 
 Edit the bundle IDs in `shortcuts.lua` for your apps. These shortcuts do not install missing apps. Full-screen and nonstandard windows are skipped.
 
@@ -205,6 +210,6 @@ Use `python3 makeover.py backups` to list original values saved in `~/Library/Ap
 python3 makeover.py undo --backup "PASTE_THE_EXACT_BACKUP_PATH_HERE"
 ```
 
-Undo leaves any value you changed later and reports its key. It keeps created folders and backups. This command does not undo hand-configured UI choices, folder icons, Hammerspoon, Plash, or Dock gaps: use their instructions above. For native settings, reverse the choice in the same control using your recorded previous value.
+Undo leaves any value you changed later and reports its key. It keeps created folders and backups. This command does not undo hand-configured UI choices, folder icons, Hammerspoon, Plash, or Dock gaps: use their instructions above. The personalized app layout uses `python3 dock.py backups` and `python3 dock.py undo --backup "EXACT_DOCK_BACKUP_PATH"`. For native settings, reverse the choice in the same control using your recorded previous value.
 
 Check appearance, Finder paths, a new screenshot's save location, clipboard copy/retrieval, desktop animation, and any optional gestures. Try the next login before relying on automatic wallpaper startup. Preference readback and simulated tests are useful but do not establish complete behavior on a different macOS version.

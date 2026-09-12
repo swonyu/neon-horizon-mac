@@ -1,6 +1,6 @@
 # Neon Horizon — Mac Makeover
 
-A clean, magenta Mac desktop with an animated cyberpunk painting, a calmer Dock, a tidier Finder, and optional two-second edge switching between desktops.
+For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with an animated cyberpunk painting, a calmer Dock, a tidier Finder, and optional two-second edge switching between desktops.
 
 ![Neon Horizon cyberpunk painting](wallpaper/still.png)
 
@@ -11,7 +11,8 @@ A clean, magenta Mac desktop with an animated cyberpunk painting, a calmer Dock,
 1. Copy or unzip the entire `neon-horizon-mac` folder onto your Mac.
 2. Open `wallpaper/index.html` to preview the finished animation.
 3. Double-click **Start.command**. Choose **1** to preview, then **2** to apply the complete native preset after reviewing it. The setup tool needs [Python 3](https://www.python.org/downloads/macos/); the wallpaper and manual guide do not.
-4. Follow [Setup](docs/SETUP.md) for Plash, the remaining native UI settings, and optional desktop controls.
+4. In **Start.command**, choose **6** to preview a personalized Dock, then **7** to apply it. Screen Sharing stays first after Finder; the rest uses your own pinned apps and available macOS usage metadata.
+5. Follow [Setup](docs/SETUP.md) for Plash, the remaining native UI settings, and optional desktop controls.
 
 The preset offers **39 settings in seven groups**. It saves the original values outside the repository before changing them. It never replaces your Dock app list, moves your existing files, changes key-repeat speed, installs apps, grants permissions, or restarts your Mac.
 
@@ -23,6 +24,27 @@ python3 makeover.py apply --groups appearance,dock,finder
 ```
 
 The available groups are `appearance`, `dock`, `finder`, `desktop`, `calendar`, `clipboard`, and `corners`; `all` selects every group. With no group argument, the tool uses the first five. The clipboard group enables native seven-day history; macOS controls which copied items it retains.
+
+## One Dock layout, your apps
+
+The optional layout tool puts **Screen Sharing immediately after Finder**, followed by a small gap and your pinned apps. It ranks apps with available Spotlight use counts first, breaking ties by last-used date; pins without counts retain their relative order afterward. Counts are local metadata, not Screen Time minutes or a guaranteed recent-time window. If none are available, your app order stays intact behind Screen Sharing.
+
+```sh
+python3 dock.py plan
+python3 dock.py apply --confirm
+# Optional: consider up to three unpinned, locally installed apps with positive usage counts
+python3 dock.py plan --discover
+python3 dock.py apply --discover --confirm
+```
+
+It preserves app installations and folder stacks, removes old spacer tiles and duplicate paths, and saves the original app layout outside the repository. It runs only when requested: icons do not rearrange in the background. No usage history, personal app list, or backup is shipped with the repo. To refresh the order later, run it again.
+
+```sh
+python3 dock.py backups
+python3 dock.py undo --backup "PASTE_THE_EXACT_DOCK_BACKUP_PATH_HERE"
+```
+
+Undo preserves the entire current app layout if its stored tiles have changed since that run, including metadata changes made by macOS. Relaunch the Dock or log out/in to display a saved layout.
 
 ## Animated wallpaper
 
@@ -58,9 +80,11 @@ python3 makeover.py undo --backup "PASTE_THE_EXACT_BACKUP_PATH_HERE"
 
 Restore the most recent backup first if you applied several groups separately. Undo changes only values that still match what that run applied, keeping your later edits. It removes keys that were originally absent. Backups and created folders remain available.
 
-The preset undo covers **preset preferences only**. Plash, its optional login host, manually chosen UI settings, imported profiles, and Hammerspoon have their own removal instructions in [Setup](docs/SETUP.md).
+The preset undo covers **preset preferences only**. The personalized Dock layout has its separate undo command above. Plash, its optional login host, manually chosen UI settings, imported profiles, and Hammerspoon have their own removal instructions in [Setup](docs/SETUP.md).
 
 ## Compatibility and checks
+
+The target is **any Mac with M5 Pro or a higher-tier/newer Pro, Max, or Ultra chip**, using supported macOS versions. Paths, installed apps and the edge helper’s display ID are detected on the receiving Mac; there is no model-specific or owner-specific configuration. Hardware branding is not a compatibility certification.
 
 Developed on a MacBook Pro with M5 Max running **macOS 27.0 beta, build 26A428**. The preset permits macOS **26.1–27**; macOS 26.1 and other Macs have **not** been live-tested. Some preference keys are undocumented and may change in OS updates. Review the guide and verify visible results after applying; a saved value alone does not guarantee an OS version uses it.
 
@@ -70,6 +94,7 @@ Run the portable checks:
 
 ```sh
 python3 tests/check.py
+python3 tests/dock-selfcheck.py
 # Optional: with Lua 5.4 installed
 (cd tests && lua edge-selfcheck.lua && lua shortcuts-selfcheck.lua)
 ```

@@ -65,7 +65,7 @@ end
 local start = dofile("../controls/shortcuts.lua")
 assert(type(start)=="function" and next(bindings)==nil, "loading must be inert")
 local handle = start()
-assert(#created==8, "expected exactly eight hotkeys")
+assert(#created==9, "expected exactly nine hotkeys")
 assert(type(handle.stop)=="function", "missing stop()")
 for _, key in ipairs({"left", "right", "c", "m"}) do press(key) end -- no window
 local original = {x=-1480, y=120, w=900, h=650}
@@ -92,7 +92,8 @@ for _, invalid in ipairs({window(nil, original), window(3, original), window(4, 
     frameIs(invalid, original, "unsupported window unchanged")
 end
 for _, item in ipairs({{"g","com.google.Chrome"}, {"t","com.openai.codex"},
-    {"c","com.anthropic.claudefordesktop"}, {"f","com.apple.finder"}}) do
+    {"c","com.anthropic.claudefordesktop"}, {"f","com.apple.finder"},
+    {"s","com.apple.ScreenSharing"}}) do
     press(item[1], true); assert(launched[#launched]==item[2], "wrong application")
 end
 handle:stop(); handle:stop()
@@ -114,4 +115,4 @@ assert(#hs.hotkey.getHotkeys()==1, "collision leaked our shortcuts")
 press("t", true); assert(launched[#launched]=="existing shortcut", "existing shortcut no longer works")
 existing:delete()
 for _, hotkey in ipairs(created) do assert(hotkey.deleted, "hotkey leaked") end
-print("PASS: 8 shortcuts; geometry, restore, unsupported windows, app IDs, stop, existing shortcuts and four startup failure paths")
+print("PASS: 9 shortcuts; geometry, restore, unsupported windows, app IDs, stop, existing shortcuts and four startup failure paths")

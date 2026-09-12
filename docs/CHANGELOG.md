@@ -11,13 +11,13 @@ This edition packages a multi-pass Mac makeover into an independent local Git re
 - Original-value backups before writes, readback verification, repeat-safe apply, and undo that preserves later edits. Backup files stay outside the repository.
 - The full manual UI checklist: appearance, typography, accessibility presentation, Finder views/sidebar/toolbar, Dock arrangement, menu bar, trackpad, keyboard lighting, Calendar, and clipboard.
 - The optional loopback-only wallpaper host with portable login install/disable commands.
-- The optional two-second edge-switch module and eight app/window shortcuts. The example config discovers a single attached display rather than embedding a machine ID.
+- The optional two-second edge-switch module and nine app/window shortcuts. The example config discovers a single attached display rather than embedding a machine ID.
 - A native local generator for four folder icons and a visual-only Terminal profile.
 - A prompt for another assistant to complete the setup on another Mac, an MIT license, and runnable checks.
 
 ## Deliberate boundaries
 
-The native clipboard uses macOS retention; this is not a permanent clipboard database. Desktop files and apps are not removed. Per-folder Finder state, app ordering, toolbar customization, menu-bar layout and permission-dependent features use the manual guide instead of copying another person's preference files.
+The native clipboard uses macOS retention; this is not a permanent clipboard database. Desktop files and apps are not removed. Per-folder Finder state, toolbar customization, menu-bar layout and permission-dependent features use the manual guide instead of copying another person's preference files.
 
 Faster key repeat and temporary TextEdit behavior changes were cancelled and are not bundled. Stage Manager is not enabled. Unfinished widget changes, a magenta pointer outline, and blocked browser settings are not claimed as applied features. The optional Terminal profile and Hammerspoon controls are provided without claiming a completed live installation.
 
@@ -55,3 +55,14 @@ so it did not verify the current build. The review did reveal straight-sided
 pavement and boat glows in code retained by both versions. Their existing
 backgrounds now fade elliptically. Source checks and package rebuilding cover
 the change; a post-reload recording is still needed to judge its appearance.
+
+## 12 September 2026 — personalized portable Dock and installed controls
+
+- The shared Dock policy now uses each Mac's own pins and Spotlight usage metadata. Screen Sharing is first after Finder, with one small separator. Missing-count and unavailable pins keep their order after measured apps. Optional discovery adds up to three locally installed apps with positive use counts.
+- Start.command includes preview, apply and undo for the layout. Durable owner-only Dock backups are separate from scalar preset backups. Undo skips a changed array conservatively, including changes macOS may make to tile metadata.
+- Dock magnification increases to 72 points while resting icons stay at 48. The optional controls add Control-Option-Command-Shift-S for Screen Sharing.
+- The intended audience is M5 Pro and higher Macs. Apps, home paths and the edge helper's display ID are local; the source Mac remains the only live-tested hardware/OS combination.
+- The layout was applied and read back on the source Mac, including after Dock restart. Hammerspoon 1.1.1 was installed from its official release, passed native signature and Gatekeeper assessment, loaded the edge helper and nine hotkeys, and showed Accessibility and login startup enabled. A real edge-triggered desktop transition and login/reboot test remain unverified.
+- The latest wallpaper HTML was copied into the source Mac's existing installed artwork location with a backup. This verifies the installed file, not a fresh Plash render; the earlier browser policy block remains respected.
+
+Checks: 18 Dock cases, 18 edge scenarios, nine shortcut bindings and existing full source/package checks. Another Mac still needs its own visible verification and permissions. The setup tool does not install Hammerspoon or copy any personal app list.
