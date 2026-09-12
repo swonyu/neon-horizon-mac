@@ -83,3 +83,11 @@ This replaces the earlier single-gap, globally ranked layout. Native Dock backup
 - Refresh the [current review](REVIEW-2026-09-12.md) and setup instructions. Existing Dock group behavior, painting, animation design and keyboard settings are unchanged.
 
 The review report records verification status and remaining live-render, gesture, login and other-Mac limits.
+
+## 12 September 2026 — measured performance review
+
+Added a [performance baseline and prioritized findings](PERFORMANCE-2026-09-12.md),
+with repeated isolated build/read-only preview timings and a reusable JSON benchmark.
+The review separates current process observations, source workload counts and
+mocked deadline/call-count evidence from unmeasured live rendering performance.
+It changes no artwork, desktop controls, native preferences or installed services.

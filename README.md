@@ -4,7 +4,7 @@ For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with an anim
 
 ![Neon Horizon cyberpunk painting](wallpaper/still.png)
 
-**Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md) · [Repository audit](docs/REVIEW-2026-09-12.md)
+**Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md) · [Repository audit](docs/REVIEW-2026-09-12.md) · [Performance review](docs/PERFORMANCE-2026-09-12.md)
 
 ## Use it
 
