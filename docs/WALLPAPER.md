@@ -10,7 +10,7 @@ bright pavement while retaining the sky, so small traffic lights, boats and rain
 impacts support that subject. The city and boat images are embedded WebPs, and
 seeded SVG rain tiles keep the page self-contained and offline.
 
-`.camera` defines the viewport; `.world` fits with small overscan and drifts; a masked near-plane copy
+`.camera` defines the viewport; `.world` covers it with small overscan and drifts; a masked near-plane copy
 of the painting scales slowly to suggest depth. Boats bob independently, and
 flipped reflections extend below their waterlines. The reflection transform
 translates the sprite before applying the negative vertical scale; without that
@@ -83,10 +83,13 @@ additional surfaces. Its feathered mask blends along the parapet. The mask's
 31.1-degree direction and 31.35% center follow from the two painted endpoints at
 world coordinates (24%, 62%) and (66%, 100%) in a 3:2 world.
 
-The world stays 3:2 and uses `width:min(102cqw,153cqh)` against the viewport.
-This gives a continuous fit with 2% overscan and a blurred surround. Both boat
-paths, waterfalls and painted puddle centers remain visible at the six checked
-aspect ratios. The painting clips overlay overflow.
+The world stays 3:2 and uses `width:max(102cqw,153cqh)` against the viewport.
+This gives continuous proportional cover with 2% overscan, including during
+camera drift and the static Reduce Motion pose. Bottom anchoring preserves
+the near river: both boat paths, waterfalls and painted puddle centers remain
+visible at 3:2, 3024:1964, 16:10 and 16:9. Wider displays crop more sky;
+portrait displays crop the sides. Extreme ratios cannot show every landmark.
+The painting clips overlay overflow; the blurred plate is a loading fallback.
 
 Weather now shares those painting coordinates. Rain tile size, travel and
 overscan scale together; the near-rain mask stays still and transparent over
@@ -115,8 +118,10 @@ repeatable assembly, exact agreement between the template rebuild and shipped
 HTML, invalid/missing assets, publication failures, and preservation of previous
 outputs after rejected grading, missing/corrupt source images or encoding errors.
 It also checks stationary shimmer, water-mask blending and inactive animation hints. `water-selfcheck.py` checks emitted placement
-bounds across 65 seeds; `framing-selfcheck.py` checks six aspect ratios, complete
-boat paths, near-rain sky exclusion and seamless proportional rain tiles.
+bounds across 65 seeds; `framing-selfcheck.py` checks viewport coverage at seven
+aspect ratios and four sizes, complete landscape boat paths, near-rain sky
+exclusion and seamless proportional rain tiles. These are source geometry
+checks, not fresh rendered verification.
 The grading check requires Pillow and
 NumPy; the others use only the standard library. Lua checks cover the optional
 controls separately. See the [current audit record](REVIEW-2026-09-12.md) for what was

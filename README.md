@@ -58,7 +58,7 @@ Open `index.html#calm` to run every animation at one third speed. Adding or remo
 
 Use [Plash](https://sindresorhus.com/plash) to place it behind your windows. The guide includes its local-file setup and an optional loopback host with login startup. Plash and Hammerspoon are separate projects and are not bundled.
 
-The base painting is **1536 × 1024**; the boat sprite is **768 × 256**. Both ship as WebP, so the file is **~0.75 MB** rather than the 5.0 MB the PNG build cost. The scene fits continuously to your display, retaining both boats, waterfalls and the foreground across narrow and wide screens. Its blurred backdrop fills the remaining space. This is layered animation, not native 4K video. Plash cannot animate the Lock Screen.
+The base painting is **1536 × 1024**; the boat sprite is **768 × 256**. Both ship as WebP, so the file is **~0.75 MB** rather than the 5.0 MB the PNG build cost. The scene fills your screen edge to edge without stretching. Bottom anchoring preserves the boats on ordinary landscape displays; wider screens crop more sky, while portrait screens crop the sides. This is layered animation, not native 4K video. Plash cannot animate the Lock Screen.
 
 To rebuild the wallpaper after editing anything under `wallpaper/build/`:
 

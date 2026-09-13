@@ -91,3 +91,13 @@ with repeated isolated build/read-only preview timings and a reusable JSON bench
 The review separates current process observations, source workload counts and
 mocked deadline/call-count evidence from unmeasured live rendering performance.
 It changes no artwork, desktop controls, native preferences or installed services.
+
+## 13 September 2026 — full-screen wallpaper
+
+Replaced the fitted painting and dark side surround with proportional full-screen
+cover. Bottom anchoring keeps the boats and near river visible on ordinary
+landscape screens; cropping varies with display shape. Overscan covers all
+camera positions and the static Reduce Motion pose. The framing check now
+rejects uncovered viewport edges across seven ratios and four sizes, while
+retaining landmark checks on four landscape ratios. The artwork bytes are
+unchanged. Fresh live rendering remains unverified under the browser policy block.

@@ -3,7 +3,7 @@
 Read the companion notes in docs/WALLPAPER.md before changing any number here.
 The motion choices are deliberate, not measured rendering guarantees:
 
-  1. .camera defines the viewport; .world fits and drifts; the near plane scales.
+  1. .camera defines the viewport; .world covers and drifts; the near plane scales.
   2. Many independent layers use different periods. Camera and near-plane clocks
      intentionally match, and other small accents also share periods.
   3. Unequal keyframe stops vary the rhythm. The cubic Bezier segments still
@@ -21,12 +21,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
 
 .scene{position:fixed;inset:0;overflow:hidden}
 
-/* One continuous fit on every display; two percent overscan covers the drift.
-   The existing blurred plate fills any space outside the painting. */
+/* Proportional cover with two percent overscan keeps every edge filled during
+   drift. Bottom anchoring preserves the near river on landscape displays. */
 .camera{container-type:size;position:absolute;inset:0}
-.world{position:absolute;top:50%;left:50%;width:min(102cqw,153cqh);aspect-ratio:3/2;
+.world{position:absolute;bottom:0;left:50%;width:max(102cqw,153cqh);aspect-ratio:3/2;
   container-type:inline-size;overflow:hidden;
-  transform:translate3d(-50.22%,-49.94%,0);
+  transform:translate3d(-50.22%,1.06%,0);
   box-shadow:0 0 100px 30px #0a0820;
   animation:drift calc(var(--t)*233s) linear infinite;will-change:transform}
 .city{position:absolute;inset:0;background:var(--city-image) center/100% 100% no-repeat}
@@ -35,10 +35,10 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
    transform there would fight, and the scene would shove half a world right.
    Four unequal stops vary the timing; eased segments still pause at endpoints. */
 @keyframes drift{
-  0%{transform:translate3d(-50.22%,-49.94%,0);animation-timing-function:cubic-bezier(.36,0,.66,1)}
-  34%{transform:translate3d(-49.86%,-50.02%,0);animation-timing-function:linear}
-  61%{transform:translate3d(-49.78%,-50.06%,0);animation-timing-function:cubic-bezier(.3,0,.7,1)}
-  100%{transform:translate3d(-50.22%,-49.94%,0)}}
+  0%{transform:translate3d(-50.22%,1.06%,0);animation-timing-function:cubic-bezier(.36,0,.66,1)}
+  34%{transform:translate3d(-49.86%,.98%,0);animation-timing-function:linear}
+  61%{transform:translate3d(-49.78%,.94%,0);animation-timing-function:cubic-bezier(.3,0,.7,1)}
+  100%{transform:translate3d(-50.22%,1.06%,0)}}
 
 /* ---- depth: the near promenade is its own plane -------------------------- */
 /* Reuses the embedded image data, bounded to the wet stone and scaled against
@@ -478,7 +478,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100d22}
   background:linear-gradient(to bottom,#0a082047 0,#0a08201f 2.6%,transparent 6.5%),
              linear-gradient(to top,#0a08201f 0,#0a082014 3.5%,transparent 9%)}
 
-/* The small blurred plate fills letterboxing as well as pillarboxing. */
+/* The small blurred plate is a fallback while the painting loads. */
 .pillar{position:absolute;inset:0;background:var(--city-blur) center/cover;
   filter:brightness(.42) saturate(.65);transform:scale(1.08)}
 

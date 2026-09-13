@@ -153,7 +153,7 @@ def main():
             graded.save(stage / 'city.webp', quality=90, method=6)
             # Exactly 3:1, matching .boat-art's declared aspect-ratio.
             boat.resize((768, 256), Image.LANCZOS).save(stage / 'boat.webp', quality=90, method=6)
-            # The small plate fills space outside the fitted painting.
+            # The small plate is a fallback while the full painting loads.
             graded.resize((64, 43), Image.LANCZOS).save(
                 stage / 'city-blur.webp', quality=82, method=6)
             apply_bloom(graded).save(stage / 'still.png')

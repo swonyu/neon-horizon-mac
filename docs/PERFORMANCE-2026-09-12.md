@@ -4,6 +4,10 @@ Neon Horizon's setup tools are fast on the measured M5 Max. The remaining perfor
 
 Reviewed source: `1626cd787b8486bef1da3611b5a77b5bf182bcaa`. No production behavior or Mac preferences were changed by this review. The added benchmark runs isolated builds or explicitly requested read-only previews. Findings below remain open unless marked as an accepted cost.
 
+Historical baseline: the 13 September full-screen correction changed the world
+from fit to cover. The surface-size examples below describe the older framing;
+they are not measurements or bounds for the current layout.
+
 ## Scope and measurement conditions
 
 - M5 Max, 18 CPU cores, 48 GiB RAM, macOS 27.0 beta build 26A428. Python 3.12.14, Pillow 12.3.0, NumPy 2.3.5; Lua 5.4.8 for control checks.

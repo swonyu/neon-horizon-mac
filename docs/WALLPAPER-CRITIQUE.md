@@ -22,7 +22,7 @@ frame-time or power results.
 
 | ID | Finding and evidence | Resolution | Status |
 |---|---|---|---|
-| W01 | The wide-display breakpoint shrinks the world by 18.9% at viewport ratio about 1.829. | Use one continuous fit rule with small overscan; center the painting over its existing blurred backdrop. | Fixed; checked in source |
+| W01 | The wide-display breakpoint shrinks the world by 18.9% at viewport ratio about 1.829. | Use one continuous sizing rule with small overscan. | Fixed; the initial fit was superseded by proportional full-screen cover on 13 September. See [current framing](WALLPAPER.md#depth-crop-and-rendering-cost). |
 | W02 | At 9:16, the visible source spans only x32.2–68.24%; boats, waterfalls and most pavement disappear. | Fit both image dimensions so narrow previews retain the subjects. Clip effects at the painting boundary. | Fixed; checked in source |
 | W03 | River impacts include the promenade at (58.48%,95.51%) and towers around (66.44%,93.22%). | Sample conservative, image-verified water regions and keep complete ring extents inside them. | Fixed; checked in source |
 | W04 | Glints appear on towers at (67.02%,69.86%), (67.46%,61.53%), and the central tower around (50.42%,64.76%). | Place fewer glints inside verified water regions, retaining depth-scaled sizes and varied phases. | Fixed; checked in source |

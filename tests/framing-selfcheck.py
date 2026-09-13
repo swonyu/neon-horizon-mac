@@ -54,11 +54,13 @@ def check():
     camera, world = declarations(block('.camera')), declarations(block('.world'))
     assert camera['inset'] == '0' and camera['container-type'] == 'size'
     assert camera.get('transform', 'none') == 'none', 'Camera must not add an untested scale'
-    assert world['top'] == world['left'] == '50%' and 'bottom' not in world
+    assert world['left'] == '50%'
+    assert (world.get('top') == '50%' and 'bottom' not in world) or (world.get('bottom') == '0' and 'top' not in world)
     assert world['overflow'] == 'hidden', 'Clip moving effects at the painting boundary'
-    width = re.fullmatch(r'min\(([\d.]+)cqw,\s*([\d.]+)cqh\)', world['width'])
-    assert width, 'Use a continuous fit of both viewport dimensions'
-    width_factor, height_factor = (float(value) / 100 for value in width.groups())
+    width = re.fullmatch(r'(min|max)\(([\d.]+)cqw,\s*([\d.]+)cqh\)', world['width'])
+    assert width, 'Use continuous proportional sizing from both viewport dimensions'
+    sizing = min if width[1] == 'min' else max
+    width_factor, height_factor = (float(value) / 100 for value in width.groups()[1:])
     aspect_width, aspect_height = map(float, world['aspect-ratio'].split('/'))
     aspect = aspect_width / aspect_height
     assert aspect == 1.5 and 1 <= width_factor <= 1.02 + 1e-9
@@ -66,15 +68,18 @@ def check():
     drift = block('@keyframes drift')
     positions = re.findall(r'translate3d\(([-\d.]+)%,\s*([-\d.]+)%,\s*0\)', drift)
     assert len(positions) >= 3
+    # Reduce Motion disables animation and leaves this static transform in place.
+    static = re.fullmatch(r'translate3d\(([-\d.]+)%,\s*([-\d.]+)%,\s*0\)', world['transform'])
+    assert static, 'Include the static pose in coverage checks'
+    positions.append(static.groups())
     xs, ys = zip(*[(float(x) / 100, float(y) / 100) for x, y in positions])
     assert max(abs(x + .5) for x in xs) <= .003
-    assert max(abs(y + .5) for y in ys) <= .001
     # Control points within [0,1] keep interpolation inside the endpoint bounds.
     for values in re.findall(r'cubic-bezier\(([^)]+)\)', drift):
         assert all(0 <= float(value) <= 1 for value in values.split(','))
 
     def size(vw, vh):
-        width = min(width_factor * vw, height_factor * vh)
+        width = sizing(width_factor * vw, height_factor * vh)
         return width, width / aspect
 
     for boundary in (height_factor / width_factor, 1.829):
@@ -95,11 +100,18 @@ def check():
     falls = [declarations(attrs['style']) for classes, attrs, _ in doc.elements if 'cascade' in classes]
     assert len(build.BOATS) == len(falls) == len(scatter.PEAKS) == 2
 
-    for ratio in (9 / 16, 1.5, 1.6, 16 / 9, 21 / 9, 32 / 9):
-        vw, vh = ratio * 1000, 1000
+    landscape = (1.5, 3024 / 1964, 1.6, 16 / 9)
+    for ratio, vh in product((9 / 16, *landscape, 21 / 9, 32 / 9), (320, 982, 1000, 2160)):
+        vw = ratio * vh
         ww, wh = size(vw, vh)
         for dx, dy in product((min(xs), max(xs)), (min(ys), max(ys))):
-            left, top = vw / 2 + dx * ww, vh / 2 + dy * wh
+            left = vw / 2 + dx * ww
+            top = (vh - wh if 'bottom' in world else vh / 2) + dy * wh
+            assert left <= 0 and left + ww >= vw, f'Uncovered side at {ratio:g}'
+            assert top <= 0 and top + wh >= vh, f'Uncovered top/bottom at {ratio:g}'
+            # Cover necessarily crops landmarks on portrait and extreme-wide displays.
+            if ratio not in landscape:
+                continue
 
             def visible(x0, y0, x1, y1, label):
                 assert 0 <= left + x0 <= left + x1 <= vw, f'{label} cropped horizontally at {ratio:g}'
@@ -119,7 +131,7 @@ def check():
                 for scale in (min(scales), max(scales)):
                     px, py = (.5 + (x / 100 - .5) * scale) * ww, (1 + (y / 100 - 1) * scale) * wh
                     visible(px, py, px, py, 'painted puddle center')
-    print('PASS: continuous framing and complete boat paths, falls and puddle centers at six aspect ratios')
+    print('PASS: full-screen coverage through drift and static pose at seven ratios and four sizes; landscape boat paths, falls and puddle centers retained')
 
     # Locate the stationary mask by its actual gradient, independent of its class name.
     regions = re.findall(r'((?:\.[\w-]+)+)\s*\{([^{}]*mask-image:linear-gradient\((?:180deg|to bottom),transparent 0 ([\d.]+)%,#000 ([\d.]+)%\)[^{}]*)\}', css)
