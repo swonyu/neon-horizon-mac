@@ -101,3 +101,9 @@ camera positions and the static Reduce Motion pose. The framing check now
 rejects uncovered viewport edges across seven ratios and four sizes, while
 retaining landmark checks on four landscape ratios. The artwork bytes are
 unchanged. Fresh live rendering remains unverified under the browser policy block.
+
+## 15 September 2026 — keep desktop icons visible
+
+The desktop preset now enables Show items on Desktop. The earlier hidden-icon
+default made desktop files and folders invisible even after arranging them.
+The setup guide now keeps icons visible and uses Stacks and spacing for tidiness.

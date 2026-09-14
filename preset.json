@@ -153,8 +153,8 @@
     [
       "com.apple.WindowManager",
       "StandardHideDesktopIcons",
-      true,
-      "Clear desktop file surface"
+      false,
+      "Show desktop files and folders"
     ],
     [
       "com.apple.WindowManager",

@@ -20,7 +20,7 @@ The complete preset includes:
 | Appearance | Dark appearance, Pink/magenta accent, large sidebar icons, scroll bars when scrolling, click-to-position scrolling, less wallpaper tint in windows |
 | Dock | 48-point icons, magnification up to 72, Scale minimize effect, opening bounce off, recent suggestions off, minimize into app icons, stable desktop order |
 | Finder | Filename extensions, Home for new windows, current-folder search, folders first when sorting by name, path and status bars, fewer volume icons on the Desktop |
-| Desktop | Tiling margins, hidden desktop file icons and widgets, future screenshots in `~/Pictures/Screenshots` |
+| Desktop | Tiling margins, visible desktop files and folders, hidden widgets, future screenshots in `~/Pictures/Screenshots` |
 | Calendar | Week numbers and activity shading in Year view |
 | Clipboard | Native history enabled for seven days |
 | Corners | Hold Option: top-left Mission Control, bottom-left Desktop, top-right Lock Screen, bottom-right Quick Note |
@@ -94,7 +94,7 @@ These reproduce the remaining visual choices through each Mac's own controls. Re
 - Under Mission Control: disable dragging windows to the top of the screen to enter Mission Control. Keep the separate fill-screen tiling gesture if you use it.
 - Leave Stage Manager at your preferred setting; it is not enabled by this preset.
 - Confirm the four Option-protected Hot Corners. Hold Option while selecting a corner's action to set its modifier in the native menu.
-- If you re-enable desktop icons, turn on Stacks, group by Kind, and use approximately **36-point icons**, **13-point labels**, and **64-point spacing**. With desktop icons hidden these sizes have no visible effect.
+- Keep **System Settings → Desktop & Dock → Show items → On Desktop** enabled. For a tidy layout, turn on Stacks, group by Kind, and use approximately **44-point icons**, **13-point labels**, and **72-point spacing**. Icon sizing cannot make items visible while the Show items setting is off.
 
 ### Finder organization
 
