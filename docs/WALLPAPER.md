@@ -1,4 +1,6 @@
-# The wallpaper scene
+# The optional animated wallpaper scene
+
+The default wallpaper is now [Sakura Park](../wallpaper/sakura-park.png), a still image selected through [native wallpaper setup](SETUP.md#2-set-the-wallpaper). The notes below describe only the optional animated cyberpunk scene; rebuilding it does not change the sakura image.
 
 Edit the sources under `wallpaper/build/`, then use the [rebuild commands](../README.md#animated-wallpaper).
 The HTML is generated; do not hand-edit `wallpaper/index.html`.

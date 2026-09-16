@@ -5,7 +5,7 @@ print 'Neon Horizon — Mac Makeover'
 print '1  Preview the complete preset (changes nothing)'
 print '2  Apply the complete preset, including 7-day clipboard history and Option Hot Corners'
 print '3  Undo a previous preset run'
-print '4  Open the wallpaper preview'
+print '4  Preview the default Sakura Park wallpaper'
 print '5  Open the setup guide'
 print '6  Preview a personalized Dock layout'
 print '7  Apply the personalized Dock layout'
@@ -30,7 +30,7 @@ case "${choice:-1}" in
        if [[ "$answer" == yes ]]; then python3 makeover.py undo --backup "$backup"; fi
      fi
      } ;;
-  4) open wallpaper/index.html ;;
+  4) open wallpaper/sakura-park.png ;;
   5) open -t docs/SETUP.md ;;
   6) python3 dock.py plan ;;
   7) python3 dock.py apply --confirm ;;

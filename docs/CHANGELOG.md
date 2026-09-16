@@ -107,3 +107,12 @@ unchanged. Fresh live rendering remains unverified under the browser policy bloc
 The desktop preset now enables Show items on Desktop. The earlier hidden-icon
 default made desktop files and folders invisible even after arranging them.
 The setup guide now keeps icons visible and uses Stacks and spacing for tidiness.
+
+## 17 September 2026 — Sakura Park is the default wallpaper
+
+Included the selected photorealistic Sakura Park image as the original 1558 × 1010
+PNG, with its generation prompts. The README preview, launcher's wallpaper preview,
+setup guide, and another-Mac prompt now use it by default. Wallpaper selection uses
+the native macOS picker with Fill Screen; the preference preset remains separate.
+The animated cyberpunk scene, its matching still, and its build tools remain
+available as an optional alternative.

@@ -1,18 +1,18 @@
 # Neon Horizon — Mac Makeover
 
-For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with an animated cyberpunk painting, a calmer Dock, a tidier Finder, and optional two-second edge switching between desktops.
+For Macs with **M5 Pro and higher chips**: a clean, magenta desktop with a photorealistic sakura park wallpaper, a calmer Dock, a tidier Finder, and optional two-second edge switching between desktops. The animated cyberpunk scene remains an optional alternative.
 
-![Neon Horizon cyberpunk painting](wallpaper/still.png)
+![Sakura park with cherry blossoms and a winding stone pathway](wallpaper/sakura-park.png)
 
 **Start here:** [Setup guide](docs/SETUP.md) · [Wallpaper design notes](docs/WALLPAPER.md) · [Another-Mac setup prompt](docs/SETUP-PROMPT.md) · [What is included](docs/CHANGELOG.md) · [Repository audit](docs/REVIEW-2026-09-12.md) · [Performance review](docs/PERFORMANCE-2026-09-12.md)
 
 ## Use it
 
 1. Copy or unzip the entire `neon-horizon-mac` folder onto your Mac.
-2. Open `wallpaper/index.html` to preview the finished animation.
+2. Preview the default **Sakura Park** image with **Start.command → 4**. Follow [the wallpaper steps](docs/SETUP.md#2-set-the-wallpaper) to select `wallpaper/sakura-park.png` in System Settings using **Fill Screen**.
 3. Double-click **Start.command**. Choose **1** to preview, then **2** to apply the complete native preset after reviewing it. The setup tool needs [Python 3](https://www.python.org/downloads/macos/); the wallpaper and manual guide do not.
 4. In **Start.command**, choose **6** to preview a personalized Dock, then **7** to apply it. Screen Sharing stays first after Finder; your own app groups keep their spacing, with usage ordering inside each group.
-5. Follow [Setup](docs/SETUP.md) for Plash, the remaining native UI settings, and optional desktop controls.
+5. Follow [Setup](docs/SETUP.md) for the remaining native UI settings and optional desktop controls. Plash is only needed if you choose the animated alternative.
 
 The preset offers **39 settings in seven groups**. It saves the original values outside the repository before changing them. It never replaces your Dock app list, moves your existing files, changes key-repeat speed, installs apps, grants permissions, or restarts your Mac.
 
@@ -48,7 +48,15 @@ python3 dock.py undo --backup "PASTE_THE_EXACT_DOCK_BACKUP_PATH_HERE"
 
 Undo preserves the entire current app layout if its stored tiles have changed since that run, including metadata changes made by macOS. Relaunch the Dock or log out/in to display a saved layout.
 
+## Default wallpaper: Sakura Park
+
+[Sakura Park](wallpaper/sakura-park.png) is a still, AI-generated image in a photographic style: pale pink cherry blossoms over a winding stone path, with benches and Japanese stone lanterns. It is the original **1558 × 1010 PNG**, without upscaling or recompression. The [generation prompts](wallpaper/sakura-park-prompt.txt) are included for provenance.
+
+Use macOS's native wallpaper picker with **Fill Screen** for proportional, edge-to-edge coverage; some cropping depends on the display. No animation app, Python, or background service is needed for this image. Wallpaper selection is a separate native setup step; applying the preference preset does not replace an existing wallpaper.
+
 ## Animated wallpaper
+
+The original **Neon Horizon** cyberpunk scene is optional. Open `wallpaper/index.html` to preview it and follow the [animation setup](docs/SETUP.md#optional-alternative-animated-neon-horizon) if you want it on your desktop. `wallpaper/still.png` remains its matching static background; it is separate from the default sakura image.
 
 Rain that gusts and obeys aerial perspective, landing across the whole wet promenade and the near river. Traffic on the bridges and two aerial lanes. The sun's reflection crawling on the water. Neon ballast stutter, windows coming on over minutes, distant lightning alongside a seven-minute storm cycle. A near-promenade plane that dollies against the camera for real depth, and a source-derived bloom that makes every light in the painting halate.
 
@@ -82,7 +90,7 @@ python3 makeover.py undo --backup "PASTE_THE_EXACT_BACKUP_PATH_HERE"
 
 Restore the most recent backup first if you applied several groups separately. Undo changes only values that still match what that run applied, keeping your later edits. It removes keys that were originally absent. Backups and created folders remain available.
 
-The preset undo covers **preset preferences only**. The personalized Dock layout has its separate undo command above. Plash, its optional login host, manually chosen UI settings, imported profiles, and Hammerspoon have their own removal instructions in [Setup](docs/SETUP.md).
+The preset undo covers **preset preferences only**. Restore your previous wallpaper through System Settings > Wallpaper. The personalized Dock layout has its separate undo command above. Plash, its optional login host, manually chosen UI settings, imported profiles, and Hammerspoon have their own removal instructions in [Setup](docs/SETUP.md).
 
 ## Compatibility and checks
 
@@ -109,4 +117,4 @@ The Python check uses a disposable preference domain on macOS, not your real UI 
 
 ## License
 
-[MIT](LICENSE) for this repository's code and included generated artwork. Artwork was created with AI and then composed into the animated scene. No third-party app binaries or Apple symbol images are distributed. The optional Mac-only icon generator uses system-provided symbols locally. Apple, Plash, and Hammerspoon names identify their respective products; this project is independent.
+[MIT](LICENSE) for this repository's code and included generated artwork. Both wallpapers were created with AI; the cyberpunk artwork was then composed into the optional animated scene. No third-party app binaries or Apple symbol images are distributed. The optional Mac-only icon generator uses system-provided symbols locally. Apple, Plash, and Hammerspoon names identify their respective products; this project is independent.

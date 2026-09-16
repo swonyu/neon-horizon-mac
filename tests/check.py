@@ -292,7 +292,7 @@ if Path('/bin/zsh').exists():
         (directory/'open').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$NEON_TEST_OPEN_LOG"\n')
         (directory/'open').chmod(0o755)
         env = dict(os.environ, PATH=str(directory), NEON_TEST_OPEN_LOG=str(log))
-        for choice, expected in [('4', ['wallpaper/index.html']), ('5', ['-t','docs/SETUP.md'])]:
+        for choice, expected in [('4', ['wallpaper/sakura-park.png']), ('5', ['-t','docs/SETUP.md'])]:
             result = subprocess.run(['/bin/zsh',str(ROOT/'Start.command')], input=choice+'\n\n', text=True, capture_output=True, env=env)
             assert result.returncode == 0 and log.read_text().splitlines() == expected
         (directory/'python3').write_text('#!/bin/sh\nexit 7\n')

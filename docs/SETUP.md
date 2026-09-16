@@ -31,9 +31,23 @@ The screenshot folder is created if needed whenever the desktop group is applied
 
 Open System Settings and Finder to verify the visible results. Some values take effect after an app is reopened or after your next logout/login. The script does not force-quit apps. If macOS ignores a setting, use its corresponding native control in this guide.
 
-## 2. Put the animation on the desktop
+## 2. Set the wallpaper
 
-### Recommended: Plash local file
+### Default: Sakura Park
+
+1. Preview [the included sakura park image](../wallpaper/sakura-park.png), or choose **Start.command → 4**. This is a still, AI-generated image in a photographic style, at its original **1558 × 1010** resolution.
+2. Keep the image somewhere permanent, such as your own `Pictures/Wallpapers` folder. Record your current wallpaper so you can restore it later.
+3. Open **System Settings > Wallpaper > Add Photo > Choose File**, then select `sakura-park.png` from that permanent location.
+4. Choose **Fill Screen** to fill the display without stretching or side bars. Enable **Show on all Spaces** if you want the same image on every desktop. Check each connected display; cropping depends on its shape.
+5. If an animated wallpaper app such as Plash is covering it, quit that app and disable its login startup. For this repository's optional login host, use the disable instructions below so it does not reopen Plash at login.
+
+The native preference preset does not select a wallpaper; this step uses macOS's own picker. Sakura Park requires no Python, Plash, or background service. To undo, select your previous wallpaper in System Settings.
+
+### Optional alternative: animated Neon Horizon
+
+Skip the rest of this section to keep the default sakura wallpaper. `wallpaper/index.html` is the original cyberpunk animation; `wallpaper/still.png` is its matching still. Neither is needed for Sakura Park.
+
+#### Plash local file
 
 1. Install [Plash from its author's site or linked App Store page](https://sindresorhus.com/plash). Choose a release compatible with your macOS version.
 2. Open Plash. In its menu-bar menu, open **Websites… / Manage Websites…**.
@@ -45,7 +59,7 @@ Plash documents local websites, but its `plash:add` URL command does **not** acc
 
 For less activity on battery, use Plash's deactivate-on-battery option. The artwork honors system Reduce Motion. Browser visibility pausing is not a promise that animation stops whenever another window covers the desktop.
 
-### Optional fallback: local HTTP host
+#### Optional fallback: local HTTP host
 
 This is useful if Plash's local-file picker is unavailable. Python 3 is required. It serves only the embedded wallpaper on your own Mac; it does not expose a folder or other files.
 
@@ -212,4 +226,4 @@ python3 makeover.py undo --backup "PASTE_THE_EXACT_BACKUP_PATH_HERE"
 
 Undo leaves any value you changed later and reports its key. It keeps created folders and backups. This command does not undo hand-configured UI choices, folder icons, Hammerspoon, Plash, or Dock gaps: use their instructions above. The personalized app layout uses `python3 dock.py backups` and `python3 dock.py undo --backup "EXACT_DOCK_BACKUP_PATH"`. For native settings, reverse the choice in the same control using your recorded previous value.
 
-Check appearance, Finder paths, a new screenshot's save location, clipboard copy/retrieval, desktop animation, and any optional gestures. Try the next login before relying on automatic wallpaper startup. Preference readback and simulated tests are useful but do not establish complete behavior on a different macOS version.
+Check appearance, Finder paths, a new screenshot's save location, clipboard copy/retrieval, the selected wallpaper and its fit, and any optional gestures. If you chose the animation, verify its motion and try the next login before relying on automatic startup. Preference readback and simulated tests are useful but do not establish complete behavior on a different macOS version.
